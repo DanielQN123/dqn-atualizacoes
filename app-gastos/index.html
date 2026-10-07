@@ -7,15 +7,20 @@
 <style>
   :root {
     --bg: #f5f6f8; --card: #ffffff; --text: #1d2330; --muted: #6b7280;
-    --border: #e3e6eb; --accent: #2563eb; --danger: #dc2626; --ok: #16a34a;
+    --border: #e3e6eb; --accent: #2563eb; --danger: #dc2626; --ok: #16a34a; --warn: #b45309;
   }
   @media (prefers-color-scheme: dark) {
-    :root {
+    :root:not([data-theme="light"]) {
       --bg: #11141a; --card: #1a1f28; --text: #e8eaee; --muted: #9aa3b2;
-      --border: #2a313d; --accent: #60a5fa; --danger: #f87171; --ok: #4ade80;
+      --border: #2a313d; --accent: #60a5fa; --danger: #f87171; --ok: #4ade80; --warn: #fbbf24;
     }
   }
+  :root[data-theme="dark"] {
+      --bg: #11141a; --card: #1a1f28; --text: #e8eaee; --muted: #9aa3b2;
+      --border: #2a313d; --accent: #60a5fa; --danger: #f87171; --ok: #4ade80; --warn: #fbbf24;
+  }
   * { box-sizing: border-box; }
+  [hidden] { display: none !important; }
   body { margin: 0; font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
          background: var(--bg); color: var(--text); }
   main { max-width: 760px; margin: 0 auto; padding: 16px; }
@@ -23,23 +28,28 @@
   h2 { font-size: 1.05rem; margin: 0 0 12px; }
   .card { background: var(--card); border: 1px solid var(--border); border-radius: 12px;
           padding: 16px; margin-bottom: 16px; }
-  form { display: grid; grid-template-columns: 2fr 1fr; gap: 10px; }
+  form { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
   form .full { grid-column: 1 / -1; }
   label { display: flex; flex-direction: column; gap: 4px; font-size: .85rem; color: var(--muted); }
+  label.check { flex-direction: row; align-items: center; gap: 8px; color: var(--text); font-size: .95rem; }
+  label.check input { width: 18px; height: 18px; }
   input, select, button { font: inherit; padding: 9px 10px; border-radius: 8px;
-          border: 1px solid var(--border); background: var(--bg); color: var(--text); }
+          border: 1px solid var(--border); background: var(--bg); color: var(--text); min-width: 0; }
   button { cursor: pointer; }
   .primary { background: var(--accent); color: #fff; border: none; font-weight: 600; }
+  .hint { font-size: .78rem; color: var(--muted); }
   .row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
-  .summary { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+  .summary { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
   .stat { text-align: center; }
-  .stat .v { font-size: 1.3rem; font-weight: 700; }
+  .stat .v { font-size: 1.2rem; font-weight: 700; font-variant-numeric: tabular-nums; }
   .stat .l { font-size: .8rem; color: var(--muted); }
   .bar { display: grid; grid-template-columns: 110px 1fr 100px; gap: 8px; align-items: center;
          font-size: .9rem; margin-bottom: 6px; }
+  .bar span:first-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .bar .track { background: var(--bg); border-radius: 6px; height: 12px; overflow: hidden; }
   .bar .fill { background: var(--accent); height: 100%; }
   .bar .amt { text-align: right; font-variant-numeric: tabular-nums; }
+  .two { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
   ul { list-style: none; padding: 0; margin: 0; }
   li { display: flex; justify-content: space-between; align-items: center; gap: 8px;
        padding: 10px 0; border-bottom: 1px solid var(--border); }
@@ -49,26 +59,50 @@
   .val { font-weight: 600; font-variant-numeric: tabular-nums; white-space: nowrap; }
   .icon { border: none; background: none; padding: 4px 6px; color: var(--muted); }
   .icon:hover { color: var(--danger); }
+  .badge { border: 1px solid currentColor; background: none; border-radius: 999px;
+           padding: 2px 9px; font-size: .78rem; white-space: nowrap; }
+  .badge.pago { color: var(--ok); }
+  .badge.pend { color: var(--warn); }
   .empty { color: var(--muted); text-align: center; padding: 12px 0; }
   .over { color: var(--danger); }
-  @media (max-width: 520px) {
+  .pend-v { color: var(--warn); }
+  .filtros { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 8px; }
+  .filtros select { flex: 1 1 120px; }
+  @media (max-width: 560px) {
     form { grid-template-columns: 1fr; }
-    .summary { grid-template-columns: 1fr; }
+    .summary { grid-template-columns: 1fr 1fr; }
+    .two { grid-template-columns: 1fr; }
     .bar { grid-template-columns: 90px 1fr 80px; }
+    li { flex-wrap: wrap; }
   }
 </style>
 </head>
 <body>
 <main>
   <h1>💰 Meus Gastos</h1>
+  <p class="meta" id="status" style="margin:-8px 0 12px">Carregando…</p>
 
   <section class="card">
     <h2 id="form-title">Novo gasto</h2>
     <form id="form">
-      <label>Descrição <input id="desc" required maxlength="80" placeholder="Ex.: Mercado"></label>
-      <label>Valor (R$) <input id="valor" required type="number" step="0.01" min="0.01" inputmode="decimal"></label>
-      <label>Categoria <select id="cat"></select></label>
+      <label class="full">Descrição <input id="desc" required maxlength="80" placeholder="Ex.: Mercado"></label>
+      <label><span id="valor-label">Valor total (R$)</span>
+        <input id="valor" required type="number" step="0.01" min="0.01" inputmode="decimal"></label>
       <label>Data <input id="data" required type="date"></label>
+      <label>Categoria <select id="cat"></select></label>
+      <label>Forma de pagamento <select id="forma"></select></label>
+      <label id="parcelas-box" hidden>Parcelas no cartão
+        <select id="parcelas"></select>
+        <span class="hint" id="parcela-info"></span>
+      </label>
+      <label>Quem pagou
+        <input id="quem" maxlength="40" list="pessoas" placeholder="Ex.: Daniel">
+        <datalist id="pessoas"></datalist>
+      </label>
+      <div class="full">
+        <label class="check"><input type="checkbox" id="pago"> Já foi pago</label>
+        <div class="hint" id="pago-hint" hidden>Em compras parceladas, vale só para a 1ª parcela. As outras você marca depois na lista.</div>
+      </div>
       <div class="row full">
         <button class="primary" type="submit" id="salvar">Adicionar</button>
         <button type="button" id="cancelar" hidden>Cancelar edição</button>
@@ -83,7 +117,8 @@
     </div>
     <div class="summary">
       <div class="stat"><div class="v" id="total">R$ 0,00</div><div class="l">Total do mês</div></div>
-      <div class="stat"><div class="v" id="qtd">0</div><div class="l">Lançamentos</div></div>
+      <div class="stat"><div class="v" id="pago-total">R$ 0,00</div><div class="l">Já pago</div></div>
+      <div class="stat"><div class="v pend-v" id="pend-total">R$ 0,00</div><div class="l">A pagar</div></div>
       <div class="stat">
         <div class="v" id="restante">—</div>
         <div class="l">Restante do orçamento
@@ -92,18 +127,24 @@
     </div>
   </section>
 
-  <section class="card">
-    <h2>Por categoria</h2>
-    <div id="cats"></div>
+  <section class="card two">
+    <div><h2>Por categoria</h2><div id="cats"></div></div>
+    <div><h2>Quem pagou</h2><div id="pessoas-bars"></div></div>
   </section>
 
   <section class="card">
     <div class="row" style="justify-content: space-between; margin-bottom: 8px;">
       <h2 style="margin:0">Lançamentos</h2>
-      <div class="row">
-        <select id="filtro-cat" aria-label="Filtrar categoria"></select>
-        <button type="button" id="exportar">Exportar CSV</button>
-      </div>
+      <button type="button" id="exportar">Exportar CSV</button>
+    </div>
+    <div class="filtros">
+      <select id="filtro-cat" aria-label="Filtrar categoria"></select>
+      <select id="filtro-sit" aria-label="Filtrar situação">
+        <option value="">Pagos e a pagar</option>
+        <option value="pend">Só a pagar</option>
+        <option value="pago">Só pagos</option>
+      </select>
+      <select id="filtro-quem" aria-label="Filtrar quem pagou"></select>
     </div>
     <ul id="lista"></ul>
   </section>
@@ -112,6 +153,8 @@
 <script>
 const CATEGORIAS = ["Alimentação", "Transporte", "Moradia", "Saúde", "Lazer",
                     "Educação", "Compras", "Contas", "Outros"];
+const FORMAS = ["Pix", "Dinheiro", "Débito", "Cartão de crédito", "Boleto", "Outro"];
+const CREDITO = "Cartão de crédito";
 const KEY = "gastos.v1", KEY_ORC = "gastos.orcamento.v1";
 
 const $ = id => document.getElementById(id);
@@ -120,37 +163,125 @@ const hoje = () => {
   const d = new Date();
   return new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 10);
 };
+const estaPago = g => g.pago !== false;
+const opcoes = lista => lista.map(c => `<option>${c}</option>`).join("");
+
+function esc(s) {
+  return String(s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+}
+
+// Mesma data N meses depois (ajusta dia 31 para o último dia do mês).
+function somaMeses(iso, n) {
+  const [a, m, d] = iso.split("-").map(Number);
+  const ultimo = new Date(a, m - 1 + n + 1, 0).getDate();
+  const r = new Date(a, m - 1 + n, Math.min(d, ultimo));
+  return `${r.getFullYear()}-${String(r.getMonth() + 1).padStart(2, "0")}-${String(r.getDate()).padStart(2, "0")}`;
+}
 
 function carregar(k, padrao) {
   try { return JSON.parse(localStorage.getItem(k)) ?? padrao; } catch { return padrao; }
 }
-function salvar(k, v) {
-  try { localStorage.setItem(k, JSON.stringify(v)); } catch { alert("Não foi possível salvar os dados."); }
+function salvarLocal(k, v) {
+  try { localStorage.setItem(k, JSON.stringify(v)); } catch {}
 }
 
+// Armazenamento: na nuvem (privado por pessoa) quando disponível; senão, no navegador.
 let gastos = carregar(KEY, []);
 let orcamento = carregar(KEY_ORC, null);
 let editando = null;
+let colecao = null;
 
-$("cat").innerHTML = CATEGORIAS.map(c => `<option>${c}</option>`).join("");
-$("filtro-cat").innerHTML = `<option value="">Todas</option>` +
-  CATEGORIAS.map(c => `<option>${c}</option>`).join("");
+const store = {
+  async gravar(lista) {
+    if (colecao) {
+      for (const g of lista) await colecao.doc("g" + g.id).set({ ...g });
+      return;
+    }
+    salvarLocal(KEY, gastos);
+  },
+  async remover(ids) {
+    if (colecao) {
+      for (const id of ids) await colecao.doc("g" + id).delete();
+      return;
+    }
+    salvarLocal(KEY, gastos);
+  },
+  async gravarOrcamento() {
+    if (colecao) return colecao.doc("config").set({ orcamento });
+    salvarLocal(KEY_ORC, orcamento);
+  },
+};
+function falha() { alert("Não foi possível salvar. Verifique sua conexão e tente de novo."); }
+
+(async () => {
+  const st = $("status");
+  try {
+    const db = await claude.use("db");
+    const user = await claude.use("user");
+    const uid = user && await user.id();
+    if (!db || !uid) throw 0;
+    colecao = db.collection("data/users/" + uid);
+    colecao.onSnapshot(snap => {
+      const lista = [];
+      let orc = null;
+      snap.docs.forEach(d => {
+        const v = d.data();
+        if (!v) return;
+        if (d.id === "config") orc = v.orcamento ?? null;
+        else if (typeof v.valor === "number") lista.push(v);
+      });
+      gastos = lista;
+      orcamento = orc;
+      st.textContent = "☁️ Salvo na sua conta — aparece em qualquer aparelho.";
+      render();
+    }, () => { st.textContent = "⚠️ Sem conexão com a nuvem no momento."; });
+  } catch {
+    st.textContent = "💾 Salvo somente neste navegador.";
+  }
+})();
+
+$("cat").innerHTML = opcoes(CATEGORIAS);
+$("forma").innerHTML = opcoes(FORMAS);
+$("parcelas").innerHTML = Array.from({ length: 24 }, (_, i) =>
+  `<option value="${i + 1}">${i === 0 ? "À vista (1x)" : `${i + 1}x`}</option>`).join("");
+$("filtro-cat").innerHTML = `<option value="">Todas as categorias</option>` + opcoes(CATEGORIAS);
 $("data").value = hoje();
 $("mes").value = hoje().slice(0, 7);
 
-function esc(s) {
-  return s.replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+function atualizaForm() {
+  const credito = $("forma").value === CREDITO;
+  $("parcelas-box").hidden = !credito || !!editando;
+  const n = credito && !editando ? Number($("parcelas").value) : 1;
+  const v = parseFloat($("valor").value);
+  $("parcela-info").textContent = n > 1 && v > 0 ? `${n}x de ${brl(Math.round(v * 100 / n) / 100)}` : "";
+  $("pago-hint").hidden = n <= 1;
 }
+["forma", "parcelas", "valor"].forEach(id => $(id).addEventListener("input", atualizaForm));
 
 function doMes() {
   return gastos.filter(g => g.data.startsWith($("mes").value));
 }
 
+function barras(el, mapa, vazio) {
+  const ordenadas = Object.entries(mapa).sort((a, b) => b[1] - a[1]);
+  const max = ordenadas.length ? ordenadas[0][1] : 0;
+  el.innerHTML = ordenadas.length
+    ? ordenadas.map(([c, v]) => `
+        <div class="bar">
+          <span title="${esc(c)}">${esc(c)}</span>
+          <div class="track"><div class="fill" style="width:${(v / max * 100).toFixed(1)}%"></div></div>
+          <span class="amt">${brl(v)}</span>
+        </div>`).join("")
+    : `<p class="empty">${vazio}</p>`;
+}
+
 function render() {
   const mes = doMes();
-  const total = mes.reduce((s, g) => s + g.valor, 0);
+  const soma = l => l.reduce((s, g) => s + g.valor, 0);
+  const total = soma(mes);
   $("total").textContent = brl(total);
-  $("qtd").textContent = mes.length;
+  $("pago-total").textContent = brl(soma(mes.filter(estaPago)));
+  $("pend-total").textContent = brl(soma(mes.filter(g => !estaPago(g))));
 
   const r = $("restante");
   if (orcamento) {
@@ -162,35 +293,47 @@ function render() {
     r.classList.remove("over");
   }
 
-  const porCat = {};
-  mes.forEach(g => porCat[g.cat] = (porCat[g.cat] || 0) + g.valor);
-  const ordenadas = Object.entries(porCat).sort((a, b) => b[1] - a[1]);
-  const max = ordenadas.length ? ordenadas[0][1] : 0;
-  $("cats").innerHTML = ordenadas.length
-    ? ordenadas.map(([c, v]) => `
-        <div class="bar">
-          <span>${c}</span>
-          <div class="track"><div class="fill" style="width:${(v / max * 100).toFixed(1)}%"></div></div>
-          <span class="amt">${brl(v)}</span>
-        </div>`).join("")
-    : `<p class="empty">Sem gastos neste mês.</p>`;
+  const porCat = {}, porQuem = {};
+  mes.forEach(g => {
+    porCat[g.cat] = (porCat[g.cat] || 0) + g.valor;
+    const q = g.quem || "Não informado";
+    porQuem[q] = (porQuem[q] || 0) + g.valor;
+  });
+  barras($("cats"), porCat, "Sem gastos neste mês.");
+  barras($("pessoas-bars"), porQuem, "Sem gastos neste mês.");
 
-  const f = $("filtro-cat").value;
-  const lista = mes.filter(g => !f || g.cat === f)
+  // Nomes já usados: sugestões no formulário e opções do filtro.
+  const nomes = [...new Set(gastos.map(g => g.quem).filter(Boolean))].sort((a, b) => a.localeCompare(b));
+  $("pessoas").innerHTML = nomes.map(n => `<option value="${esc(n)}">`).join("");
+  const fq = $("filtro-quem"), atualQ = fq.value;
+  fq.innerHTML = `<option value="">Todas as pessoas</option>` +
+    nomes.map(n => `<option value="${esc(n)}">${esc(n)}</option>`).join("");
+  fq.value = nomes.includes(atualQ) ? atualQ : "";
+
+  const fc = $("filtro-cat").value, fs = $("filtro-sit").value, fp = fq.value;
+  const lista = mes.filter(g => (!fc || g.cat === fc)
+                             && (!fs || (fs === "pago") === estaPago(g))
+                             && (!fp || g.quem === fp))
                    .sort((a, b) => b.data.localeCompare(a.data) || b.id - a.id);
   $("lista").innerHTML = lista.length
-    ? lista.map(g => `
+    ? lista.map(g => {
+        const forma = g.forma ? (g.parcela ? `${g.forma} ${g.parcela}` : g.forma) : "";
+        const meta = [g.cat, g.data.split("-").reverse().join("/"), forma, g.quem].filter(Boolean).map(esc).join(" · ");
+        return `
         <li>
           <div>
             <div class="desc">${esc(g.desc)}</div>
-            <div class="meta">${g.cat} · ${g.data.split("-").reverse().join("/")}</div>
+            <div class="meta">${meta}</div>
           </div>
           <div class="row">
             <span class="val">${brl(g.valor)}</span>
+            <button class="badge ${estaPago(g) ? "pago" : "pend"}" data-toggle="${g.id}"
+              title="Tocar para mudar">${estaPago(g) ? "✓ Pago" : "A pagar"}</button>
             <button class="icon" data-edit="${g.id}" title="Editar">✏️</button>
             <button class="icon" data-del="${g.id}" title="Excluir">🗑️</button>
           </div>
-        </li>`).join("")
+        </li>`;
+      }).join("")
     : `<li class="empty" style="justify-content:center">Nenhum lançamento.</li>`;
 }
 
@@ -199,8 +342,10 @@ function resetForm() {
   $("form").reset();
   $("data").value = hoje();
   $("form-title").textContent = "Novo gasto";
+  $("valor-label").textContent = "Valor total (R$)";
   $("salvar").textContent = "Adicionar";
   $("cancelar").hidden = true;
+  atualizaForm();
 }
 
 $("form").addEventListener("submit", e => {
@@ -210,14 +355,36 @@ $("form").addEventListener("submit", e => {
     valor: Math.round(parseFloat($("valor").value) * 100) / 100,
     cat: $("cat").value,
     data: $("data").value,
+    forma: $("forma").value,
+    quem: $("quem").value.trim(),
+    pago: $("pago").checked,
   };
   if (!item.desc || !(item.valor > 0)) return;
+
+  let novos;
   if (editando) {
-    Object.assign(gastos.find(g => g.id === editando), item);
+    novos = [Object.assign(gastos.find(x => x.id === editando), item)];
   } else {
-    gastos.push({ id: Date.now(), ...item });
+    const n = item.forma === CREDITO ? Number($("parcelas").value) : 1;
+    const base = Date.now();
+    if (n === 1) {
+      novos = [{ id: base, ...item }];
+    } else {
+      // Divide em centavos; a última parcela leva a diferença do arredondamento.
+      const cent = Math.round(item.valor * 100), parte = Math.floor(cent / n);
+      novos = Array.from({ length: n }, (_, i) => ({
+        ...item,
+        id: base + i,
+        grupo: base,
+        parcela: `${i + 1}/${n}`,
+        valor: (i === n - 1 ? cent - parte * (n - 1) : parte) / 100,
+        data: somaMeses(item.data, i),
+        pago: i === 0 && item.pago,
+      }));
+    }
+    gastos.push(...novos);
   }
-  salvar(KEY, gastos);
+  store.gravar(novos).catch(falha);
   $("mes").value = item.data.slice(0, 7);
   resetForm();
   render();
@@ -228,10 +395,23 @@ $("cancelar").addEventListener("click", resetForm);
 $("lista").addEventListener("click", e => {
   const del = e.target.closest("[data-del]");
   const edit = e.target.closest("[data-edit]");
-  if (del) {
-    if (!confirm("Excluir este gasto?")) return;
-    gastos = gastos.filter(g => g.id !== Number(del.dataset.del));
-    salvar(KEY, gastos);
+  const tog = e.target.closest("[data-toggle]");
+  if (tog) {
+    const g = gastos.find(g => g.id === Number(tog.dataset.toggle));
+    g.pago = !estaPago(g);
+    store.gravar([g]).catch(falha);
+    render();
+  } else if (del) {
+    const g = gastos.find(g => g.id === Number(del.dataset.del));
+    let ids = [g.id];
+    if (g.grupo) {
+      const todas = gastos.filter(x => x.grupo === g.grupo);
+      if (todas.length > 1 && confirm(`Esta compra tem ${todas.length} parcelas. Excluir TODAS as parcelas?`)) {
+        ids = todas.map(x => x.id);
+      } else if (!confirm(`Excluir só a parcela ${g.parcela}?`)) return;
+    } else if (!confirm("Excluir este gasto?")) return;
+    gastos = gastos.filter(x => !ids.includes(x.id));
+    store.remover(ids).catch(falha);
     render();
   } else if (edit) {
     const g = gastos.find(g => g.id === Number(edit.dataset.edit));
@@ -240,9 +420,14 @@ $("lista").addEventListener("click", e => {
     $("valor").value = g.valor;
     $("cat").value = g.cat;
     $("data").value = g.data;
-    $("form-title").textContent = "Editar gasto";
+    $("forma").value = g.forma || FORMAS[0];
+    $("quem").value = g.quem || "";
+    $("pago").checked = estaPago(g);
+    $("form-title").textContent = g.parcela ? `Editar parcela ${g.parcela}` : "Editar gasto";
+    $("valor-label").textContent = g.parcela ? "Valor da parcela (R$)" : "Valor (R$)";
     $("salvar").textContent = "Salvar";
     $("cancelar").hidden = false;
+    atualizaForm();
     $("desc").focus();
   }
 });
@@ -253,26 +438,34 @@ $("def-orc").addEventListener("click", e => {
   if (v === null) return;
   const n = parseFloat(v.replace(",", "."));
   orcamento = n > 0 ? n : null;
-  salvar(KEY_ORC, orcamento);
+  store.gravarOrcamento().catch(falha);
   render();
 });
 
-$("mes").addEventListener("change", render);
-$("filtro-cat").addEventListener("change", render);
+["mes", "filtro-cat", "filtro-sit", "filtro-quem"].forEach(id => $(id).addEventListener("change", render));
 
-$("exportar").addEventListener("click", () => {
-  const linhas = [["Data", "Descrição", "Categoria", "Valor"],
+$("exportar").addEventListener("click", async () => {
+  const linhas = [["Data", "Descrição", "Categoria", "Forma de pagamento", "Parcela", "Quem pagou", "Situação", "Valor"],
     ...doMes().sort((a, b) => a.data.localeCompare(b.data))
-      .map(g => [g.data, g.desc, g.cat, g.valor.toFixed(2).replace(".", ",")])];
+      .map(g => [g.data.split("-").reverse().join("/"), g.desc, g.cat, g.forma || "", g.parcela || "",
+                 g.quem || "", estaPago(g) ? "Pago" : "A pagar", g.valor.toFixed(2).replace(".", ",")])];
   const csv = linhas.map(l => l.map(c => `"${String(c).replace(/"/g, '""')}"`).join(";")).join("\r\n");
   const blob = new Blob(["﻿" + csv], { type: "text/csv;charset=utf-8" });
+  const filename = `gastos-${$("mes").value}.csv`;
+  try {
+    const downloads = await claude.use("downloads");
+    if (downloads) { await downloads.save({ filename, data: blob }); return; }
+  } catch (e) {
+    if (e && e.code) return; // recusado pelo usuário ou indisponível
+  }
   const a = document.createElement("a");
   a.href = URL.createObjectURL(blob);
-  a.download = `gastos-${$("mes").value}.csv`;
+  a.download = filename;
   a.click();
   URL.revokeObjectURL(a.href);
 });
 
+atualizaForm();
 render();
 </script>
 </body>
