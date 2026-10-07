@@ -2,8 +2,16 @@
 <html lang="pt-BR">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Meus Gastos</title>
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="theme-color" content="#2563eb">
+<link rel="icon" type="image/png" href="icons/favicon-32.png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Gastos">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
 <style>
   :root {
     --bg: #f5f6f8; --card: #ffffff; --text: #1d2330; --muted: #6b7280;
@@ -23,7 +31,11 @@
   [hidden] { display: none !important; }
   body { margin: 0; font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
          background: var(--bg); color: var(--text); }
-  main { max-width: 760px; margin: 0 auto; padding: 16px; }
+  main { max-width: 760px; margin: 0 auto; padding: 16px;
+         padding-top: max(16px, env(safe-area-inset-top)); padding-bottom: max(16px, env(safe-area-inset-bottom)); }
+  .topo { display: flex; align-items: center; gap: 10px; margin: 8px 0 16px; }
+  .topo img { width: 40px; height: 40px; border-radius: 10px; object-fit: contain; }
+  .topo h1 { margin: 0; }
   h1 { font-size: 1.5rem; margin: 8px 0 16px; }
   h2 { font-size: 1.05rem; margin: 0 0 12px; }
   .card { background: var(--card); border: 1px solid var(--border); border-radius: 12px;
@@ -79,7 +91,10 @@
 </head>
 <body>
 <main>
-  <h1>💰 Meus Gastos</h1>
+  <div class="topo">
+    <img src="icons/icon-192.png" alt="">
+    <h1>Meus Gastos</h1>
+  </div>
   <p class="meta" id="status" style="margin:-8px 0 12px">Carregando…</p>
 
   <section class="card">
@@ -147,6 +162,17 @@
       <select id="filtro-quem" aria-label="Filtrar quem pagou"></select>
     </div>
     <ul id="lista"></ul>
+  </section>
+
+  <section class="card" id="backup-card">
+    <h2>Backup</h2>
+    <p class="hint" style="margin-top:0" id="backup-hint">Os gastos ficam guardados neste aparelho. Faça backup de vez em quando
+      para não perder nada se trocar de celular. Também serve para passar os dados de um celular para outro.</p>
+    <div class="row">
+      <button type="button" id="backup">Fazer backup</button>
+      <button type="button" id="restaurar">Restaurar backup</button>
+      <input type="file" id="arquivo-backup" accept=".json,application/json" hidden>
+    </div>
   </section>
 </main>
 
@@ -233,6 +259,7 @@ function falha() { alert("Não foi possível salvar. Verifique sua conexão e te
       gastos = lista;
       orcamento = orc;
       st.textContent = "☁️ Salvo na sua conta — aparece em qualquer aparelho.";
+      $("backup-hint").textContent = "Seus gastos já estão salvos na sua conta. O backup serve para guardar uma cópia ou levar os dados para o app instalado no celular.";
       render();
     }, () => { st.textContent = "⚠️ Sem conexão com a nuvem no momento."; });
   } catch {
@@ -451,19 +478,60 @@ $("exportar").addEventListener("click", async () => {
                  g.quem || "", estaPago(g) ? "Pago" : "A pagar", g.valor.toFixed(2).replace(".", ",")])];
   const csv = linhas.map(l => l.map(c => `"${String(c).replace(/"/g, '""')}"`).join(";")).join("\r\n");
   const blob = new Blob(["﻿" + csv], { type: "text/csv;charset=utf-8" });
-  const filename = `gastos-${$("mes").value}.csv`;
+  entregar(blob, `gastos-${$("mes").value}.csv`);
+});
+
+// Entrega um arquivo: no celular abre o "Compartilhar" (salvar em Arquivos, WhatsApp, e-mail...);
+// no computador, baixa.
+async function entregar(blob, filename) {
   try {
     const downloads = await claude.use("downloads");
     if (downloads) { await downloads.save({ filename, data: blob }); return; }
   } catch (e) {
     if (e && e.code) return; // recusado pelo usuário ou indisponível
   }
+  const file = new File([blob], filename, { type: blob.type });
+  if (navigator.canShare && navigator.canShare({ files: [file] })) {
+    try { await navigator.share({ files: [file], title: filename }); return; }
+    catch (e) { if (e.name === "AbortError") return; }
+  }
   const a = document.createElement("a");
   a.href = URL.createObjectURL(blob);
   a.download = filename;
   a.click();
-  URL.revokeObjectURL(a.href);
+  setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+}
+
+$("backup").addEventListener("click", () => {
+  const dados = JSON.stringify({ app: "meus-gastos", versao: 1, gastos, orcamento });
+  entregar(new Blob([dados], { type: "application/json" }), `backup-gastos-${hoje()}.json`);
 });
+
+$("restaurar").addEventListener("click", () => $("arquivo-backup").click());
+$("arquivo-backup").addEventListener("change", async e => {
+  const f = e.target.files[0];
+  e.target.value = "";
+  if (!f) return;
+  let dados;
+  try {
+    dados = JSON.parse(await f.text());
+    if (dados.app !== "meus-gastos" || !Array.isArray(dados.gastos)) throw 0;
+  } catch { alert("Esse arquivo não é um backup do Meus Gastos."); return; }
+  const validos = dados.gastos.filter(g => g && typeof g.id === "number" && typeof g.valor === "number"
+    && typeof g.desc === "string" && typeof g.data === "string" && typeof g.cat === "string");
+  const ids = new Set(gastos.map(g => g.id));
+  const novos = validos.filter(g => !ids.has(g.id));
+  if (!confirm(`Encontrei ${validos.length} gastos no backup, ${novos.length} ainda não estão aqui. Adicionar?`)) return;
+  gastos.push(...novos);
+  if (!orcamento && dados.orcamento > 0) { orcamento = dados.orcamento; store.gravarOrcamento().catch(falha); }
+  store.gravar(novos).catch(falha);
+  render();
+  alert(`${novos.length} gastos adicionados.`);
+});
+
+if ("serviceWorker" in navigator && location.protocol === "https:") {
+  navigator.serviceWorker.register("sw.js").catch(() => {});
+}
 
 atualizaForm();
 render();
