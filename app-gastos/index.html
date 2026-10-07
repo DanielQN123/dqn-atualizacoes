@@ -1,0 +1,279 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Meus Gastos</title>
+<style>
+  :root {
+    --bg: #f5f6f8; --card: #ffffff; --text: #1d2330; --muted: #6b7280;
+    --border: #e3e6eb; --accent: #2563eb; --danger: #dc2626; --ok: #16a34a;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #11141a; --card: #1a1f28; --text: #e8eaee; --muted: #9aa3b2;
+      --border: #2a313d; --accent: #60a5fa; --danger: #f87171; --ok: #4ade80;
+    }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+         background: var(--bg); color: var(--text); }
+  main { max-width: 760px; margin: 0 auto; padding: 16px; }
+  h1 { font-size: 1.5rem; margin: 8px 0 16px; }
+  h2 { font-size: 1.05rem; margin: 0 0 12px; }
+  .card { background: var(--card); border: 1px solid var(--border); border-radius: 12px;
+          padding: 16px; margin-bottom: 16px; }
+  form { display: grid; grid-template-columns: 2fr 1fr; gap: 10px; }
+  form .full { grid-column: 1 / -1; }
+  label { display: flex; flex-direction: column; gap: 4px; font-size: .85rem; color: var(--muted); }
+  input, select, button { font: inherit; padding: 9px 10px; border-radius: 8px;
+          border: 1px solid var(--border); background: var(--bg); color: var(--text); }
+  button { cursor: pointer; }
+  .primary { background: var(--accent); color: #fff; border: none; font-weight: 600; }
+  .row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+  .summary { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+  .stat { text-align: center; }
+  .stat .v { font-size: 1.3rem; font-weight: 700; }
+  .stat .l { font-size: .8rem; color: var(--muted); }
+  .bar { display: grid; grid-template-columns: 110px 1fr 100px; gap: 8px; align-items: center;
+         font-size: .9rem; margin-bottom: 6px; }
+  .bar .track { background: var(--bg); border-radius: 6px; height: 12px; overflow: hidden; }
+  .bar .fill { background: var(--accent); height: 100%; }
+  .bar .amt { text-align: right; font-variant-numeric: tabular-nums; }
+  ul { list-style: none; padding: 0; margin: 0; }
+  li { display: flex; justify-content: space-between; align-items: center; gap: 8px;
+       padding: 10px 0; border-bottom: 1px solid var(--border); }
+  li:last-child { border-bottom: none; }
+  .desc { font-weight: 500; }
+  .meta { font-size: .8rem; color: var(--muted); }
+  .val { font-weight: 600; font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .icon { border: none; background: none; padding: 4px 6px; color: var(--muted); }
+  .icon:hover { color: var(--danger); }
+  .empty { color: var(--muted); text-align: center; padding: 12px 0; }
+  .over { color: var(--danger); }
+  @media (max-width: 520px) {
+    form { grid-template-columns: 1fr; }
+    .summary { grid-template-columns: 1fr; }
+    .bar { grid-template-columns: 90px 1fr 80px; }
+  }
+</style>
+</head>
+<body>
+<main>
+  <h1>💰 Meus Gastos</h1>
+
+  <section class="card">
+    <h2 id="form-title">Novo gasto</h2>
+    <form id="form">
+      <label>Descrição <input id="desc" required maxlength="80" placeholder="Ex.: Mercado"></label>
+      <label>Valor (R$) <input id="valor" required type="number" step="0.01" min="0.01" inputmode="decimal"></label>
+      <label>Categoria <select id="cat"></select></label>
+      <label>Data <input id="data" required type="date"></label>
+      <div class="row full">
+        <button class="primary" type="submit" id="salvar">Adicionar</button>
+        <button type="button" id="cancelar" hidden>Cancelar edição</button>
+      </div>
+    </form>
+  </section>
+
+  <section class="card">
+    <div class="row" style="justify-content: space-between; margin-bottom: 12px;">
+      <h2 style="margin:0">Resumo</h2>
+      <input id="mes" type="month" aria-label="Mês">
+    </div>
+    <div class="summary">
+      <div class="stat"><div class="v" id="total">R$ 0,00</div><div class="l">Total do mês</div></div>
+      <div class="stat"><div class="v" id="qtd">0</div><div class="l">Lançamentos</div></div>
+      <div class="stat">
+        <div class="v" id="restante">—</div>
+        <div class="l">Restante do orçamento
+          (<a href="#" id="def-orc">definir</a>)</div>
+      </div>
+    </div>
+  </section>
+
+  <section class="card">
+    <h2>Por categoria</h2>
+    <div id="cats"></div>
+  </section>
+
+  <section class="card">
+    <div class="row" style="justify-content: space-between; margin-bottom: 8px;">
+      <h2 style="margin:0">Lançamentos</h2>
+      <div class="row">
+        <select id="filtro-cat" aria-label="Filtrar categoria"></select>
+        <button type="button" id="exportar">Exportar CSV</button>
+      </div>
+    </div>
+    <ul id="lista"></ul>
+  </section>
+</main>
+
+<script>
+const CATEGORIAS = ["Alimentação", "Transporte", "Moradia", "Saúde", "Lazer",
+                    "Educação", "Compras", "Contas", "Outros"];
+const KEY = "gastos.v1", KEY_ORC = "gastos.orcamento.v1";
+
+const $ = id => document.getElementById(id);
+const brl = n => n.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+const hoje = () => {
+  const d = new Date();
+  return new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 10);
+};
+
+function carregar(k, padrao) {
+  try { return JSON.parse(localStorage.getItem(k)) ?? padrao; } catch { return padrao; }
+}
+function salvar(k, v) {
+  try { localStorage.setItem(k, JSON.stringify(v)); } catch { alert("Não foi possível salvar os dados."); }
+}
+
+let gastos = carregar(KEY, []);
+let orcamento = carregar(KEY_ORC, null);
+let editando = null;
+
+$("cat").innerHTML = CATEGORIAS.map(c => `<option>${c}</option>`).join("");
+$("filtro-cat").innerHTML = `<option value="">Todas</option>` +
+  CATEGORIAS.map(c => `<option>${c}</option>`).join("");
+$("data").value = hoje();
+$("mes").value = hoje().slice(0, 7);
+
+function esc(s) {
+  return s.replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+}
+
+function doMes() {
+  return gastos.filter(g => g.data.startsWith($("mes").value));
+}
+
+function render() {
+  const mes = doMes();
+  const total = mes.reduce((s, g) => s + g.valor, 0);
+  $("total").textContent = brl(total);
+  $("qtd").textContent = mes.length;
+
+  const r = $("restante");
+  if (orcamento) {
+    const resto = orcamento - total;
+    r.textContent = brl(resto);
+    r.classList.toggle("over", resto < 0);
+  } else {
+    r.textContent = "—";
+    r.classList.remove("over");
+  }
+
+  const porCat = {};
+  mes.forEach(g => porCat[g.cat] = (porCat[g.cat] || 0) + g.valor);
+  const ordenadas = Object.entries(porCat).sort((a, b) => b[1] - a[1]);
+  const max = ordenadas.length ? ordenadas[0][1] : 0;
+  $("cats").innerHTML = ordenadas.length
+    ? ordenadas.map(([c, v]) => `
+        <div class="bar">
+          <span>${c}</span>
+          <div class="track"><div class="fill" style="width:${(v / max * 100).toFixed(1)}%"></div></div>
+          <span class="amt">${brl(v)}</span>
+        </div>`).join("")
+    : `<p class="empty">Sem gastos neste mês.</p>`;
+
+  const f = $("filtro-cat").value;
+  const lista = mes.filter(g => !f || g.cat === f)
+                   .sort((a, b) => b.data.localeCompare(a.data) || b.id - a.id);
+  $("lista").innerHTML = lista.length
+    ? lista.map(g => `
+        <li>
+          <div>
+            <div class="desc">${esc(g.desc)}</div>
+            <div class="meta">${g.cat} · ${g.data.split("-").reverse().join("/")}</div>
+          </div>
+          <div class="row">
+            <span class="val">${brl(g.valor)}</span>
+            <button class="icon" data-edit="${g.id}" title="Editar">✏️</button>
+            <button class="icon" data-del="${g.id}" title="Excluir">🗑️</button>
+          </div>
+        </li>`).join("")
+    : `<li class="empty" style="justify-content:center">Nenhum lançamento.</li>`;
+}
+
+function resetForm() {
+  editando = null;
+  $("form").reset();
+  $("data").value = hoje();
+  $("form-title").textContent = "Novo gasto";
+  $("salvar").textContent = "Adicionar";
+  $("cancelar").hidden = true;
+}
+
+$("form").addEventListener("submit", e => {
+  e.preventDefault();
+  const item = {
+    desc: $("desc").value.trim(),
+    valor: Math.round(parseFloat($("valor").value) * 100) / 100,
+    cat: $("cat").value,
+    data: $("data").value,
+  };
+  if (!item.desc || !(item.valor > 0)) return;
+  if (editando) {
+    Object.assign(gastos.find(g => g.id === editando), item);
+  } else {
+    gastos.push({ id: Date.now(), ...item });
+  }
+  salvar(KEY, gastos);
+  $("mes").value = item.data.slice(0, 7);
+  resetForm();
+  render();
+});
+
+$("cancelar").addEventListener("click", resetForm);
+
+$("lista").addEventListener("click", e => {
+  const del = e.target.closest("[data-del]");
+  const edit = e.target.closest("[data-edit]");
+  if (del) {
+    if (!confirm("Excluir este gasto?")) return;
+    gastos = gastos.filter(g => g.id !== Number(del.dataset.del));
+    salvar(KEY, gastos);
+    render();
+  } else if (edit) {
+    const g = gastos.find(g => g.id === Number(edit.dataset.edit));
+    editando = g.id;
+    $("desc").value = g.desc;
+    $("valor").value = g.valor;
+    $("cat").value = g.cat;
+    $("data").value = g.data;
+    $("form-title").textContent = "Editar gasto";
+    $("salvar").textContent = "Salvar";
+    $("cancelar").hidden = false;
+    $("desc").focus();
+  }
+});
+
+$("def-orc").addEventListener("click", e => {
+  e.preventDefault();
+  const v = prompt("Orçamento mensal em R$ (deixe vazio para remover):", orcamento ?? "");
+  if (v === null) return;
+  const n = parseFloat(v.replace(",", "."));
+  orcamento = n > 0 ? n : null;
+  salvar(KEY_ORC, orcamento);
+  render();
+});
+
+$("mes").addEventListener("change", render);
+$("filtro-cat").addEventListener("change", render);
+
+$("exportar").addEventListener("click", () => {
+  const linhas = [["Data", "Descrição", "Categoria", "Valor"],
+    ...doMes().sort((a, b) => a.data.localeCompare(b.data))
+      .map(g => [g.data, g.desc, g.cat, g.valor.toFixed(2).replace(".", ",")])];
+  const csv = linhas.map(l => l.map(c => `"${String(c).replace(/"/g, '""')}"`).join(";")).join("\r\n");
+  const blob = new Blob(["﻿" + csv], { type: "text/csv;charset=utf-8" });
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = `gastos-${$("mes").value}.csv`;
+  a.click();
+  URL.revokeObjectURL(a.href);
+});
+
+render();
+</script>
+</body>
+</html>
