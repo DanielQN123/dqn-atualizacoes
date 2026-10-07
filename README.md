@@ -22,5 +22,5 @@ Endereço do app: https://danielqn123.github.io/dqn-atualizacoes/app-gastos/
 Os dados ficam em cada aparelho. Use **Fazer backup / Restaurar backup** para guardar
 uma cópia ou passar os dados de um celular para outro.
 
-Para trocar a logo: `python3 app-gastos/gerar-icones.py minha-logo.png "#ffffff"`
+O ícone usa o símbolo da logo DQN Sistemas. Para trocar: `python3 app-gastos/gerar-icones.py simbolo.png "#ffffff"`
 (a cor é o fundo atrás da logo) e aumente a versão em `app-gastos/sw.js`.

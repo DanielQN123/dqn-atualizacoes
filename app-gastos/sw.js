@@ -1,5 +1,5 @@
 // Permite abrir o app sem internet. Ao mudar qualquer arquivo, aumente a versão.
-const CACHE = "gastos-v1";
+const CACHE = "gastos-v2";
 const ARQUIVOS = [
   "./",
   "./index.html",
@@ -8,6 +8,7 @@ const ARQUIVOS = [
   "./icons/icon-512.png",
   "./icons/apple-touch-icon.png",
   "./icons/favicon-32.png",
+  "./icons/logo-dqn.png",
 ];
 
 self.addEventListener("install", e => {

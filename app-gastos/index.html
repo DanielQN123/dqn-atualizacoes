@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Meus Gastos</title>
 <link rel="manifest" href="manifest.webmanifest">
-<meta name="theme-color" content="#2563eb">
+<meta name="theme-color" content="#055fe6">
 <link rel="icon" type="image/png" href="icons/favicon-32.png">
 <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -15,7 +15,7 @@
 <style>
   :root {
     --bg: #f5f6f8; --card: #ffffff; --text: #1d2330; --muted: #6b7280;
-    --border: #e3e6eb; --accent: #2563eb; --danger: #dc2626; --ok: #16a34a; --warn: #b45309;
+    --border: #e3e6eb; --accent: #055fe6; --danger: #dc2626; --ok: #16a34a; --warn: #b45309;
   }
   @media (prefers-color-scheme: dark) {
     :root:not([data-theme="light"]) {
@@ -34,7 +34,9 @@
   main { max-width: 760px; margin: 0 auto; padding: 16px;
          padding-top: max(16px, env(safe-area-inset-top)); padding-bottom: max(16px, env(safe-area-inset-bottom)); }
   .topo { display: flex; align-items: center; gap: 10px; margin: 8px 0 16px; }
-  .topo img { width: 40px; height: 40px; border-radius: 10px; object-fit: contain; }
+  .topo { justify-content: space-between; }
+  .logo { background: #fff; border-radius: 10px; padding: 6px 10px; display: inline-flex; }
+  .logo img { height: 46px; width: auto; display: block; }
   .topo h1 { margin: 0; }
   h1 { font-size: 1.5rem; margin: 8px 0 16px; }
   h2 { font-size: 1.05rem; margin: 0 0 12px; }
@@ -92,7 +94,7 @@
 <body>
 <main>
   <div class="topo">
-    <img src="icons/icon-192.png" alt="">
+    <span class="logo"><img src="icons/logo-dqn.png" alt="DQN Sistemas"></span>
     <h1>Meus Gastos</h1>
   </div>
   <p class="meta" id="status" style="margin:-8px 0 12px">Carregando…</p>
@@ -263,7 +265,7 @@ function falha() { alert("Não foi possível salvar. Verifique sua conexão e te
       render();
     }, () => { st.textContent = "⚠️ Sem conexão com a nuvem no momento."; });
   } catch {
-    st.textContent = "💾 Salvo somente neste navegador.";
+    st.textContent = "💾 Salvo neste aparelho.";
   }
 })();
 
