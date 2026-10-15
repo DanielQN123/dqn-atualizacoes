@@ -29,6 +29,16 @@
   }
   * { box-sizing: border-box; }
   [hidden] { display: none !important; }
+  #login, #conta { display: none; }
+  body[data-modo="nuvem"] #conteudo { display: none; }
+  body[data-modo="nuvem"][data-logado="sim"] #conteudo { display: block; }
+  body[data-modo="nuvem"][data-logado="nao"] #login { display: block; }
+  body[data-modo="nuvem"][data-logado="sim"] #conta { display: flex; }
+  #conta { justify-content: space-between; align-items: center; gap: 8px; margin: -4px 0 12px; font-size: .85rem; color: var(--muted); }
+  #conta button { padding: 5px 12px; }
+  .link { background: none; border: none; color: var(--accent); padding: 4px 0; text-decoration: underline; }
+  #login form { grid-template-columns: 1fr; }
+  #login-erro { color: var(--danger); font-size: .9rem; min-height: 1.2em; margin: 0; }
   body { margin: 0; font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
          background: var(--bg); color: var(--text); }
   main { max-width: 760px; margin: 0 auto; padding: 16px;
@@ -98,6 +108,22 @@
     <h1>Meus Gastos</h1>
   </div>
   <p class="meta" id="status" style="margin:-8px 0 12px">Carregando…</p>
+  <div id="conta"><span id="conta-email"></span><button type="button" id="sair">Sair</button></div>
+
+  <section class="card" id="login">
+    <h2>Entre na sua conta</h2>
+    <p class="hint" style="margin-top:0">Com a conta, seus gastos ficam iguais em todos os seus celulares.</p>
+    <form id="login-form">
+      <label>E-mail <input id="login-email" type="email" required autocomplete="email" inputmode="email"></label>
+      <label>Senha <input id="login-senha" type="password" required minlength="6" autocomplete="current-password"></label>
+      <p id="login-erro" role="alert"></p>
+      <button class="primary" type="submit">Entrar</button>
+      <button type="button" id="criar-conta">Criar conta nova</button>
+      <button type="button" class="link" id="esqueci">Esqueci a senha</button>
+    </form>
+  </section>
+
+  <div id="conteudo">
 
   <section class="card">
     <h2 id="form-title">Novo gasto</h2>
@@ -176,9 +202,11 @@
       <input type="file" id="arquivo-backup" accept=".json,application/json" hidden>
     </div>
   </section>
+  </div>
 </main>
 
 <script>
+window.nuvem = null;
 const CATEGORIAS = ["Alimentação", "Transporte", "Moradia", "Saúde", "Lazer",
                     "Educação", "Compras", "Contas", "Outros"];
 const FORMAS = ["Pix", "Dinheiro", "Débito", "Cartão de crédito", "Boleto", "Outro"];
@@ -213,61 +241,36 @@ function salvarLocal(k, v) {
   try { localStorage.setItem(k, JSON.stringify(v)); } catch {}
 }
 
-// Armazenamento: na nuvem (privado por pessoa) quando disponível; senão, no navegador.
+// Armazenamento: na conta (nuvem.js, quando configurado) ou só no aparelho.
 let gastos = carregar(KEY, []);
 let orcamento = carregar(KEY_ORC, null);
 let editando = null;
-let colecao = null;
 
 const store = {
   async gravar(lista) {
-    if (colecao) {
-      for (const g of lista) await colecao.doc("g" + g.id).set({ ...g });
-      return;
-    }
+    if (window.nuvem) return window.nuvem.gravar(lista);
     salvarLocal(KEY, gastos);
   },
   async remover(ids) {
-    if (colecao) {
-      for (const id of ids) await colecao.doc("g" + id).delete();
-      return;
-    }
+    if (window.nuvem) return window.nuvem.remover(ids);
     salvarLocal(KEY, gastos);
   },
   async gravarOrcamento() {
-    if (colecao) return colecao.doc("config").set({ orcamento });
+    if (window.nuvem) return window.nuvem.gravarOrcamento(orcamento);
     salvarLocal(KEY_ORC, orcamento);
   },
 };
 function falha() { alert("Não foi possível salvar. Verifique sua conexão e tente de novo."); }
 
-(async () => {
-  const st = $("status");
-  try {
-    const db = await claude.use("db");
-    const user = await claude.use("user");
-    const uid = user && await user.id();
-    if (!db || !uid) throw 0;
-    colecao = db.collection("data/users/" + uid);
-    colecao.onSnapshot(snap => {
-      const lista = [];
-      let orc = null;
-      snap.docs.forEach(d => {
-        const v = d.data();
-        if (!v) return;
-        if (d.id === "config") orc = v.orcamento ?? null;
-        else if (typeof v.valor === "number") lista.push(v);
-      });
-      gastos = lista;
-      orcamento = orc;
-      st.textContent = "☁️ Salvo na sua conta — aparece em qualquer aparelho.";
-      $("backup-hint").textContent = "Seus gastos já estão salvos na sua conta. O backup serve para guardar uma cópia ou levar os dados para o app instalado no celular.";
-      render();
-    }, () => { st.textContent = "⚠️ Sem conexão com a nuvem no momento."; });
-  } catch {
-    st.textContent = "💾 Salvo neste aparelho.";
-  }
-})();
+// Usado por nuvem.js para entregar os dados da conta.
+window.app = {
+  setGastos(lista) { gastos = lista; render(); },
+  setOrcamento(v) { orcamento = v; render(); },
+  limpar() { gastos = []; orcamento = null; resetForm(); render(); },
+  locais: () => carregar(KEY, []),
+};
+
+$("status").textContent = "💾 Salvo neste aparelho.";
 
 $("cat").innerHTML = opcoes(CATEGORIAS);
 $("forma").innerHTML = opcoes(FORMAS);
@@ -486,12 +489,6 @@ $("exportar").addEventListener("click", async () => {
 // Entrega um arquivo: no celular abre o "Compartilhar" (salvar em Arquivos, WhatsApp, e-mail...);
 // no computador, baixa.
 async function entregar(blob, filename) {
-  try {
-    const downloads = await claude.use("downloads");
-    if (downloads) { await downloads.save({ filename, data: blob }); return; }
-  } catch (e) {
-    if (e && e.code) return; // recusado pelo usuário ou indisponível
-  }
   const file = new File([blob], filename, { type: blob.type });
   if (navigator.canShare && navigator.canShare({ files: [file] })) {
     try { await navigator.share({ files: [file], title: filename }); return; }
@@ -538,5 +535,6 @@ if ("serviceWorker" in navigator && location.protocol === "https:") {
 atualizaForm();
 render();
 </script>
+<script type="module" src="nuvem.js"></script>
 </body>
 </html>

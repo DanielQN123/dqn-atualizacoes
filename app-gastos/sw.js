@@ -1,5 +1,5 @@
 // Permite abrir o app sem internet. Ao mudar qualquer arquivo, aumente a versão.
-const CACHE = "gastos-v2";
+const CACHE = "gastos-v3";
 const ARQUIVOS = [
   "./",
   "./index.html",
@@ -9,6 +9,9 @@ const ARQUIVOS = [
   "./icons/apple-touch-icon.png",
   "./icons/favicon-32.png",
   "./icons/logo-dqn.png",
+  "./nuvem.js",
+  "./firebase-config.js",
+  "./vendor/firebase.js",
 ];
 
 self.addEventListener("install", e => {

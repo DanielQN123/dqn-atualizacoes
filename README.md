@@ -24,3 +24,11 @@ uma cópia ou passar os dados de um celular para outro.
 
 O ícone usa o símbolo da logo DQN Sistemas. Para trocar: `python3 app-gastos/gerar-icones.py simbolo.png "#ffffff"`
 (a cor é o fundo atrás da logo) e aumente a versão em `app-gastos/sw.js`.
+
+### Login e sincronização (Firebase)
+
+Com `app-gastos/firebase-config.js` preenchido, o app pede login (e-mail e senha) e salva os
+gastos no Firestore em `usuarios/{uid}/gastos`, sincronizando em tempo real entre aparelhos e
+funcionando sem internet. As regras de acesso estão em `app-gastos/firestore.rules`.
+Sem configuração, o app continua salvando só no aparelho.
+`app-gastos/vendor/firebase.js` é o SDK do Firebase empacotado (veja `vendor/firebase-entry.js`).
