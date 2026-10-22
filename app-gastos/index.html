@@ -43,12 +43,10 @@
          background: var(--bg); color: var(--text); }
   main { max-width: 760px; margin: 0 auto; padding: 16px;
          padding-top: max(16px, env(safe-area-inset-top)); padding-bottom: max(16px, env(safe-area-inset-bottom)); }
-  .topo { display: flex; align-items: center; gap: 10px; margin: 8px 0 16px; }
-  .topo { justify-content: space-between; }
+  .topo { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin: 8px 0 16px; }
   .logo { background: #fff; border-radius: 10px; padding: 6px 10px; display: inline-flex; }
   .logo img { height: 46px; width: auto; display: block; }
-  .topo h1 { margin: 0; }
-  h1 { font-size: 1.5rem; margin: 8px 0 16px; }
+  h1 { font-size: 1.5rem; margin: 0; }
   h2 { font-size: 1.05rem; margin: 0 0 12px; }
   .card { background: var(--card); border: 1px solid var(--border); border-radius: 12px;
           padding: 16px; margin-bottom: 16px; }
@@ -63,17 +61,54 @@
   .primary { background: var(--accent); color: #fff; border: none; font-weight: 600; }
   .hint { font-size: .78rem; color: var(--muted); }
   .row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+
+  /* navegação de mês */
+  .mesnav { display: flex; align-items: center; justify-content: center; gap: 8px; margin-bottom: 16px; }
+  .mesnav button { width: 44px; height: 44px; font-size: 1.2rem; padding: 0; border-radius: 50%; }
+  .mesnav input { font-weight: 600; text-align: center; }
+
+  /* abas Gasto / Entrada */
+  .abas { display: grid; grid-template-columns: 1fr 1fr; gap: 0; margin-bottom: 12px;
+          border: 1px solid var(--border); border-radius: 10px; overflow: hidden; }
+  .abas button { border: none; border-radius: 0; background: var(--bg); font-weight: 600; color: var(--muted); }
+  .abas button[aria-pressed="true"] { background: var(--accent); color: #fff; }
+  body[data-tipo="entrada"] .so-gasto { display: none !important; }
+  body:not([data-tipo="entrada"]) .so-entrada { display: none !important; }
+
   .summary { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
   .stat { text-align: center; }
   .stat .v { font-size: 1.2rem; font-weight: 700; font-variant-numeric: tabular-nums; }
   .stat .l { font-size: .8rem; color: var(--muted); }
+  .ent { color: var(--ok); }
+  .over { color: var(--danger); }
+  .pend-v { color: var(--warn); }
+  .orc { margin-top: 14px; font-size: .85rem; color: var(--muted); }
+  .orc .track { background: var(--bg); border-radius: 6px; height: 10px; overflow: hidden; margin: 6px 0; }
+  .orc .fill { background: var(--accent); height: 100%; }
+  .orc .fill.over { background: var(--danger); }
+
   .bar { display: grid; grid-template-columns: 110px 1fr 100px; gap: 8px; align-items: center;
          font-size: .9rem; margin-bottom: 6px; }
   .bar span:first-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .bar .track { background: var(--bg); border-radius: 6px; height: 12px; overflow: hidden; }
-  .bar .fill { background: var(--accent); height: 100%; }
+  .track { background: var(--bg); border-radius: 6px; height: 12px; overflow: hidden; }
+  .fill { background: var(--accent); height: 100%; }
   .bar .amt { text-align: right; font-variant-numeric: tabular-nums; }
   .two { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+
+  /* comparativo de meses */
+  .cmp { display: grid; grid-template-columns: 70px 1fr; gap: 4px 8px; align-items: center; font-size: .85rem; }
+  .cmp .mes-l { color: var(--muted); }
+  .cmp .mes-l.atual { color: var(--text); font-weight: 700; }
+  .cmp .barras { display: flex; flex-direction: column; gap: 3px; padding: 4px 0; }
+  .cmp .linha { display: grid; grid-template-columns: 1fr 92px; gap: 6px; align-items: center; }
+  .cmp .track { height: 9px; }
+  .cmp .fill.g { background: var(--danger); }
+  .cmp .fill.e { background: var(--ok); }
+  .cmp .num { text-align: right; font-variant-numeric: tabular-nums; font-size: .78rem; }
+  .legenda { display: flex; gap: 14px; font-size: .78rem; color: var(--muted); margin-bottom: 8px; }
+  .legenda i { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 4px; vertical-align: -1px; }
+  #cmp-texto { font-size: .9rem; margin: 10px 0 0; }
+
   ul { list-style: none; padding: 0; margin: 0; }
   li { display: flex; justify-content: space-between; align-items: center; gap: 8px;
        padding: 10px 0; border-bottom: 1px solid var(--border); }
@@ -87,11 +122,20 @@
            padding: 2px 9px; font-size: .78rem; white-space: nowrap; }
   .badge.pago { color: var(--ok); }
   .badge.pend { color: var(--warn); }
+  .tag { font-size: .72rem; border-radius: 6px; padding: 1px 6px; background: var(--bg); color: var(--muted); white-space: nowrap; }
+  .tag.atraso { background: var(--danger); color: #fff; }
+  .tag.hoje { background: var(--warn); color: #fff; }
   .empty { color: var(--muted); text-align: center; padding: 12px 0; }
-  .over { color: var(--danger); }
-  .pend-v { color: var(--warn); }
   .filtros { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 8px; }
   .filtros select { flex: 1 1 120px; }
+
+  /* alertas de vencimento */
+  #alertas { border-color: var(--warn); }
+  #alertas h2 { color: var(--warn); }
+  #alertas.tem-atraso { border-color: var(--danger); }
+  #alertas.tem-atraso h2 { color: var(--danger); }
+  #alertas li button.pagar { padding: 5px 12px; }
+
   #relatorio { display: none; }
   @media print {
     body { background: #fff; color: #000; }
@@ -143,7 +187,33 @@
 
   <div id="conteudo">
 
+  <div class="mesnav">
+    <button type="button" id="mes-ant" aria-label="Mês anterior">‹</button>
+    <input id="mes" type="month" aria-label="Mês">
+    <button type="button" id="mes-prox" aria-label="Próximo mês">›</button>
+  </div>
+
+  <section class="card" id="alertas" hidden>
+    <h2 id="alertas-titulo">Contas a vencer</h2>
+    <ul id="alertas-lista"></ul>
+  </section>
+
   <section class="card">
+    <h2>Resumo do mês</h2>
+    <div class="summary">
+      <div class="stat"><div class="v ent" id="ent-total">R$ 0,00</div><div class="l">Entradas</div></div>
+      <div class="stat"><div class="v" id="total">R$ 0,00</div><div class="l">Gastos</div></div>
+      <div class="stat"><div class="v" id="saldo">R$ 0,00</div><div class="l">Saldo</div></div>
+      <div class="stat"><div class="v pend-v" id="pend-total">R$ 0,00</div><div class="l">Falta pagar</div></div>
+    </div>
+    <div class="orc" id="orc-box"></div>
+  </section>
+
+  <section class="card">
+    <div class="abas" role="group" aria-label="Tipo de lançamento">
+      <button type="button" id="aba-gasto" aria-pressed="true">− Gasto</button>
+      <button type="button" id="aba-entrada" aria-pressed="false">+ Entrada</button>
+    </div>
     <h2 id="form-title">Novo gasto</h2>
     <form id="form">
       <label class="full">Descrição <input id="desc" required maxlength="80" placeholder="Ex.: Mercado"></label>
@@ -151,16 +221,23 @@
         <input id="valor" required type="number" step="0.01" min="0.01" inputmode="decimal"></label>
       <label>Data <input id="data" required type="date"></label>
       <label>Categoria <select id="cat"></select></label>
-      <label>Forma de pagamento <select id="forma"></select></label>
-      <label id="parcelas-box" hidden>Parcelas no cartão
+      <label class="so-gasto">Forma de pagamento <select id="forma"></select></label>
+      <label id="parcelas-box" class="so-gasto" hidden>Parcelas no cartão
         <select id="parcelas"></select>
         <span class="hint" id="parcela-info"></span>
       </label>
-      <label>Quem pagou
+      <label class="so-gasto">Vencimento <span class="hint" style="margin-top:-4px">opcional, para avisar antes de vencer</span>
+        <input id="venc" type="date"></label>
+      <label><span id="quem-label">Quem pagou</span>
         <input id="quem" maxlength="40" list="pessoas" placeholder="Ex.: Daniel">
         <datalist id="pessoas"></datalist>
       </label>
-      <div class="full">
+      <div class="full" id="fixa-box">
+        <label class="check"><input type="checkbox" id="fixa">
+          <span id="fixa-label">Conta fixa: repetir todo mês</span></label>
+        <div class="hint" id="fixa-hint" hidden></div>
+      </div>
+      <div class="full so-gasto">
         <label class="check"><input type="checkbox" id="pago"> Já foi pago</label>
         <div class="hint" id="pago-hint" hidden>Em compras parceladas, vale só para a 1ª parcela. As outras você marca depois na lista.</div>
       </div>
@@ -172,42 +249,43 @@
   </section>
 
   <section class="card">
-    <div class="row" style="justify-content: space-between; margin-bottom: 12px;">
-      <h2 style="margin:0">Resumo</h2>
-      <input id="mes" type="month" aria-label="Mês">
-    </div>
-    <div class="summary">
-      <div class="stat"><div class="v" id="total">R$ 0,00</div><div class="l">Total do mês</div></div>
-      <div class="stat"><div class="v" id="pago-total">R$ 0,00</div><div class="l">Já pago</div></div>
-      <div class="stat"><div class="v pend-v" id="pend-total">R$ 0,00</div><div class="l">A pagar</div></div>
-      <div class="stat">
-        <div class="v" id="restante">—</div>
-        <div class="l">Restante do orçamento
-          (<a href="#" id="def-orc">definir</a>)</div>
-      </div>
-    </div>
+    <h2>Comparar meses</h2>
+    <div class="legenda"><span><i style="background:var(--ok)"></i>Entradas</span><span><i style="background:var(--danger)"></i>Gastos</span></div>
+    <div class="cmp" id="cmp"></div>
+    <p id="cmp-texto"></p>
   </section>
 
   <section class="card two">
-    <div><h2>Por categoria</h2><div id="cats"></div></div>
+    <div><h2>Gastos por categoria</h2><div id="cats"></div></div>
     <div><h2>Quem pagou</h2><div id="pessoas-bars"></div></div>
   </section>
 
   <section class="card">
     <div class="row" style="justify-content: space-between; margin-bottom: 8px;">
-      <h2 style="margin:0">Lançamentos</h2>
+      <h2 style="margin:0">Lançamentos do mês</h2>
       <button type="button" id="exportar">Exportar CSV</button>
     </div>
     <div class="filtros">
+      <select id="filtro-tipo" aria-label="Filtrar tipo">
+        <option value="">Gastos e entradas</option>
+        <option value="gasto">Só gastos</option>
+        <option value="entrada">Só entradas</option>
+      </select>
       <select id="filtro-cat" aria-label="Filtrar categoria"></select>
       <select id="filtro-sit" aria-label="Filtrar situação">
         <option value="">Pagos e a pagar</option>
         <option value="pend">Só a pagar</option>
         <option value="pago">Só pagos</option>
       </select>
-      <select id="filtro-quem" aria-label="Filtrar quem pagou"></select>
+      <select id="filtro-quem" aria-label="Filtrar pessoa"></select>
     </div>
     <ul id="lista"></ul>
+  </section>
+
+  <section class="card">
+    <h2>Contas fixas</h2>
+    <p class="hint" style="margin-top:0">Entram sozinhas em todo mês. Para criar, marque "repetir todo mês" ao lançar.</p>
+    <ul id="fixas-lista"></ul>
   </section>
 
   <section class="card">
@@ -216,7 +294,7 @@
       (na tela de impressão, escolha "Salvar como PDF").</p>
     <div class="row">
       <select id="rel-periodo" aria-label="Período do relatório">
-        <option value="mes">Mês selecionado no resumo</option>
+        <option value="mes">Mês selecionado</option>
         <option value="ano">Ano inteiro</option>
         <option value="tudo">Todos os lançamentos</option>
       </select>
@@ -241,9 +319,13 @@
 window.nuvem = null;
 const CATEGORIAS = ["Alimentação", "Transporte", "Moradia", "Saúde", "Lazer",
                     "Educação", "Compras", "Contas", "Outros"];
+const CATS_ENTRADA = ["Salário", "Renda extra", "Vendas", "Aluguel recebido", "Outros"];
 const FORMAS = ["Pix", "Dinheiro", "Débito", "Cartão de crédito", "Boleto", "Outro"];
 const CREDITO = "Cartão de crédito";
-const KEY = "gastos.v1", KEY_ORC = "gastos.orcamento.v1";
+const KEY = "gastos.v1", KEY_ORC = "gastos.orcamento.v1", KEY_FIXAS = "gastos.fixas.v1";
+const NOMES_MES = ["janeiro", "fevereiro", "março", "abril", "maio", "junho", "julho",
+                   "agosto", "setembro", "outubro", "novembro", "dezembro"];
+const DIAS_AVISO = 7;
 
 const $ = id => document.getElementById(id);
 const brl = n => n.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
@@ -251,8 +333,14 @@ const hoje = () => {
   const d = new Date();
   return new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 10);
 };
-const estaPago = g => g.pago !== false;
+const dataBR = iso => iso.split("-").reverse().join("/");
+const ehEntrada = g => g.tipo === "entrada";
+const estaPago = g => ehEntrada(g) || g.pago !== false;
 const opcoes = lista => lista.map(c => `<option>${c}</option>`).join("");
+const soma = l => l.reduce((s, g) => s + g.valor, 0);
+const nomeMes = ym => { const [a, m] = ym.split("-"); return `${NOMES_MES[m - 1]} de ${a}`; };
+const nomeMesCurto = ym => { const [a, m] = ym.split("-"); return `${NOMES_MES[m - 1].slice(0, 3)}/${a.slice(2)}`; };
+const maiuscula = s => s[0].toUpperCase() + s.slice(1);
 
 function esc(s) {
   return String(s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
@@ -265,6 +353,19 @@ function somaMeses(iso, n) {
   const r = new Date(a, m - 1 + n, Math.min(d, ultimo));
   return `${r.getFullYear()}-${String(r.getMonth() + 1).padStart(2, "0")}-${String(r.getDate()).padStart(2, "0")}`;
 }
+const somaMes = (ym, n) => somaMeses(ym + "-01", n).slice(0, 7);
+// Dia "dia" do mês ym (dia 31 vira o último dia em meses mais curtos).
+const diaNoMes = (ym, dia) =>
+  `${ym}-${String(Math.min(dia, new Date(+ym.slice(0, 4), +ym.slice(5, 7), 0).getDate())).padStart(2, "0")}`;
+const diasAte = iso => Math.round((new Date(iso + "T12:00") - new Date(hoje() + "T12:00")) / 86400000);
+
+// Ids únicos mesmo com vários lançamentos no mesmo milissegundo (n reserva ids seguidos).
+let ultimoId = 0;
+function novoId(n = 1) {
+  const id = Math.max(Date.now(), ultimoId + 1);
+  ultimoId = id + n - 1;
+  return id;
+}
 
 function carregar(k, padrao) {
   try { return JSON.parse(localStorage.getItem(k)) ?? padrao; } catch { return padrao; }
@@ -273,10 +374,14 @@ function salvarLocal(k, v) {
   try { localStorage.setItem(k, JSON.stringify(v)); } catch {}
 }
 
-// Armazenamento: na conta (nuvem.js, quando configurado) ou só no aparelho.
+// ---------- Dados e armazenamento ----------
+// Na conta (nuvem.js, quando configurado) ou só no aparelho.
 let gastos = carregar(KEY, []);
 let orcamento = carregar(KEY_ORC, null);
+let fixas = carregar(KEY_FIXAS, []);
 let editando = null;
+let tipoForm = "gasto";
+let dadosProntos = true; // na nuvem, só vira true depois de receber os dados da conta
 
 const store = {
   async gravar(lista) {
@@ -287,44 +392,252 @@ const store = {
     if (window.nuvem) return window.nuvem.remover(ids);
     salvarLocal(KEY, gastos);
   },
-  async gravarOrcamento() {
-    if (window.nuvem) return window.nuvem.gravarOrcamento(orcamento);
+  async gravarPerfil() {
+    if (window.nuvem) return window.nuvem.gravarPerfil({ orcamento, fixas });
     salvarLocal(KEY_ORC, orcamento);
+    salvarLocal(KEY_FIXAS, fixas);
   },
 };
 function falha() { alert("Não foi possível salvar. Verifique sua conexão e tente de novo."); }
 
 // Usado por nuvem.js para entregar os dados da conta.
+let recebeuGastos = false, recebeuPerfil = false;
 window.app = {
-  setGastos(lista) { gastos = lista; render(); },
-  setOrcamento(v) { orcamento = v; render(); },
-  limpar() { gastos = []; orcamento = null; resetForm(); render(); },
+  entrar() { dadosProntos = recebeuGastos = recebeuPerfil = false; gastos = []; fixas = []; orcamento = null; render(); },
+  setGastos(lista, confirmado) {
+    gastos = lista;
+    if (confirmado) recebeuGastos = true;
+    pronto();
+  },
+  setPerfil(p) {
+    orcamento = p.orcamento ?? null;
+    fixas = Array.isArray(p.fixas) ? p.fixas : [];
+    recebeuPerfil = true;
+    pronto();
+  },
+  limpar() { gastos = []; orcamento = null; fixas = []; resetForm(); render(); },
   locais: () => carregar(KEY, []),
+  fixasLocais: () => carregar(KEY_FIXAS, []),
+  // Envia para a conta o que estava só no aparelho (espera os dados da conta chegarem).
+  importar(lista, listaFixas) { importacao = [lista, listaFixas]; pronto(); },
 };
+let importacao = null;
+function pronto() {
+  if (!dadosProntos && recebeuGastos && recebeuPerfil) dadosProntos = true;
+  if (dadosProntos && importacao) {
+    const [lista, listaFixas] = importacao;
+    importacao = null;
+    const ids = new Set(gastos.map(g => g.id));
+    const novos = lista.filter(g => !ids.has(g.id));
+    const fixasNovas = listaFixas.filter(x => !fixas.some(f => f.id === x.id));
+    gastos.push(...novos);
+    if (novos.length) store.gravar(novos).catch(falha);
+    if (fixasNovas.length) { fixas.push(...fixasNovas); store.gravarPerfil().catch(falha); }
+  }
+  gerarFixas();
+  render();
+}
 
-$("status").textContent = "💾 Salvo neste aparelho.";
+// ---------- Contas fixas ----------
+// Cada conta fixa gera um lançamento por mês, com id fixo por mês: lançar de novo
+// (em outro aparelho, por exemplo) só sobrescreve o mesmo lançamento, nunca duplica.
+const idFixa = (f, ym) => Number(ym.replace("-", "")) * 1e7 + (f.id % 1e7);
 
-$("cat").innerHTML = opcoes(CATEGORIAS);
+function gerarFixas() {
+  if (!dadosProntos) return;
+  const atual = hoje().slice(0, 7);
+  const meses = new Set([atual, $("mes").value].filter(ym => ym <= somaMes(atual, 1)));
+  const novos = [];
+  for (const f of fixas) for (const ym of meses) {
+    if (ym < f.inicio || (f.fim && ym > f.fim) || (f.pulados || []).includes(ym)) continue;
+    const id = idFixa(f, ym);
+    if (gastos.some(g => g.id === id || (g.fixa === f.id && g.data.startsWith(ym)))) continue;
+    const data = diaNoMes(ym, f.dia);
+    const g = { id, tipo: f.tipo || "gasto", fixa: f.id, desc: f.desc, valor: f.valor, cat: f.cat,
+                data, forma: f.forma || "", quem: f.quem || "", pago: false };
+    if (g.tipo !== "entrada") g.venc = data; else delete g.pago;
+    novos.push(g);
+  }
+  if (!novos.length) return;
+  gastos.push(...novos);
+  store.gravar(novos).catch(falha);
+}
+
+// ---------- Formulário ----------
 $("forma").innerHTML = opcoes(FORMAS);
 $("parcelas").innerHTML = Array.from({ length: 24 }, (_, i) =>
   `<option value="${i + 1}">${i === 0 ? "À vista (1x)" : `${i + 1}x`}</option>`).join("");
-$("filtro-cat").innerHTML = `<option value="">Todas as categorias</option>` + opcoes(CATEGORIAS);
 $("data").value = hoje();
 $("mes").value = hoje().slice(0, 7);
 
+function setTipo(t) {
+  tipoForm = t;
+  document.body.dataset.tipo = t;
+  $("aba-gasto").setAttribute("aria-pressed", t === "gasto");
+  $("aba-entrada").setAttribute("aria-pressed", t === "entrada");
+  const cat = $("cat").value;
+  $("cat").innerHTML = opcoes(t === "entrada" ? CATS_ENTRADA : CATEGORIAS);
+  if ([...$("cat").options].some(o => o.value === cat)) $("cat").value = cat;
+  $("desc").placeholder = t === "entrada" ? "Ex.: Salário" : "Ex.: Mercado";
+  $("quem-label").textContent = t === "entrada" ? "Quem recebeu" : "Quem pagou";
+  $("fixa-label").textContent = t === "entrada" ? "Entrada fixa: repetir todo mês" : "Conta fixa: repetir todo mês";
+  if (!editando) $("form-title").textContent = t === "entrada" ? "Nova entrada" : "Novo gasto";
+  atualizaForm();
+}
+$("aba-gasto").addEventListener("click", () => { if (!editando) setTipo("gasto"); });
+$("aba-entrada").addEventListener("click", () => { if (!editando) setTipo("entrada"); });
+
 function atualizaForm() {
-  const credito = $("forma").value === CREDITO;
+  const gasto = tipoForm === "gasto";
+  const credito = gasto && $("forma").value === CREDITO;
   $("parcelas-box").hidden = !credito || !!editando;
   const n = credito && !editando ? Number($("parcelas").value) : 1;
   const v = parseFloat($("valor").value);
   $("parcela-info").textContent = n > 1 && v > 0 ? `${n}x de ${brl(Math.round(v * 100 / n) / 100)}` : "";
   $("pago-hint").hidden = n <= 1;
+  $("valor-label").textContent = editando ? "Valor (R$)" : gasto && n > 1 ? "Valor total (R$)" : "Valor (R$)";
+  // Conta fixa não combina com parcelado nem com edição.
+  $("fixa-box").hidden = !!editando || n > 1;
+  if (n > 1) $("fixa").checked = false;
+  const dia = Number((($("venc").value && gasto) ? $("venc").value : $("data").value || hoje()).slice(8));
+  $("fixa-hint").hidden = !$("fixa").checked;
+  $("fixa-hint").textContent = `Vai entrar todo dia ${dia}, a partir deste mês. ` +
+    "Para parar ou mudar o valor, use o quadro Contas fixas.";
 }
-["forma", "parcelas", "valor"].forEach(id => $(id).addEventListener("input", atualizaForm));
+["forma", "parcelas", "valor", "venc", "data", "fixa"].forEach(id => $(id).addEventListener("input", atualizaForm));
 
-function doMes() {
-  return gastos.filter(g => g.data.startsWith($("mes").value));
+function resetForm() {
+  editando = null;
+  $("form").reset();
+  $("data").value = hoje();
+  $("salvar").textContent = "Adicionar";
+  $("cancelar").hidden = true;
+  setTipo(tipoForm);
 }
+
+$("form").addEventListener("submit", e => {
+  e.preventDefault();
+  const gasto = tipoForm === "gasto";
+  const item = {
+    tipo: tipoForm,
+    desc: $("desc").value.trim(),
+    valor: Math.round(parseFloat($("valor").value) * 100) / 100,
+    cat: $("cat").value,
+    data: $("data").value,
+    quem: $("quem").value.trim(),
+  };
+  if (gasto) {
+    item.forma = $("forma").value;
+    item.pago = $("pago").checked;
+    if ($("venc").value) item.venc = $("venc").value;
+  }
+  if (!item.desc || !(item.valor > 0)) return;
+
+  let novos;
+  if (editando) {
+    const g = gastos.find(x => x.id === editando);
+    if (gasto && !item.venc) delete g.venc;
+    novos = [Object.assign(g, item)];
+  } else {
+    const n = gasto && item.forma === CREDITO ? Number($("parcelas").value) : 1;
+    const base = novoId(n);
+    if ($("fixa").checked) {
+      const ref = item.venc || item.data;
+      const f = { id: base, tipo: item.tipo, desc: item.desc, valor: item.valor, cat: item.cat,
+                  forma: item.forma || "", quem: item.quem, dia: Number(ref.slice(8)),
+                  inicio: item.data.slice(0, 7), pulados: [] };
+      fixas.push(f);
+      store.gravarPerfil().catch(falha);
+      novos = [{ id: idFixa(f, f.inicio), fixa: f.id, ...item }];
+      if (gasto && !item.venc) novos[0].venc = item.data;
+    } else if (n === 1) {
+      novos = [{ id: base, ...item }];
+    } else {
+      // Divide em centavos; a última parcela leva a diferença do arredondamento.
+      const cent = Math.round(item.valor * 100), parte = Math.floor(cent / n);
+      novos = Array.from({ length: n }, (_, i) => ({
+        ...item,
+        id: base + i,
+        grupo: base,
+        parcela: `${i + 1}/${n}`,
+        valor: (i === n - 1 ? cent - parte * (n - 1) : parte) / 100,
+        data: somaMeses(item.data, i),
+        pago: i === 0 && item.pago,
+      }));
+      novos.forEach(p => delete p.venc);
+    }
+    gastos.push(...novos);
+  }
+  store.gravar(novos).catch(falha);
+  $("mes").value = item.data.slice(0, 7);
+  resetForm();
+  gerarFixas();
+  render();
+});
+
+$("cancelar").addEventListener("click", resetForm);
+
+function editar(g) {
+  editando = null;
+  setTipo(ehEntrada(g) ? "entrada" : "gasto");
+  editando = g.id;
+  $("desc").value = g.desc;
+  $("valor").value = g.valor;
+  $("cat").value = g.cat;
+  $("data").value = g.data;
+  $("forma").value = g.forma || FORMAS[0];
+  $("venc").value = g.venc || "";
+  $("quem").value = g.quem || "";
+  $("pago").checked = estaPago(g);
+  $("form-title").textContent = g.parcela ? `Editar parcela ${g.parcela}`
+    : ehEntrada(g) ? "Editar entrada" : "Editar gasto";
+  $("salvar").textContent = "Salvar";
+  $("cancelar").hidden = false;
+  atualizaForm();
+  $("form").scrollIntoView({ behavior: "smooth", block: "center" });
+  $("desc").focus({ preventScroll: true });
+}
+
+function alternarPago(id) {
+  const g = gastos.find(g => g.id === id);
+  if (!g || ehEntrada(g)) return;
+  g.pago = !estaPago(g);
+  store.gravar([g]).catch(falha);
+  render();
+}
+
+function excluir(id) {
+  const g = gastos.find(g => g.id === id);
+  let ids = [g.id];
+  if (g.grupo) {
+    const todas = gastos.filter(x => x.grupo === g.grupo);
+    if (todas.length > 1 && confirm(`Esta compra tem ${todas.length} parcelas. Excluir TODAS as parcelas?`)) {
+      ids = todas.map(x => x.id);
+    } else if (!confirm(`Excluir só a parcela ${g.parcela}?`)) return;
+  } else if (g.fixa && fixas.some(f => f.id === g.fixa)) {
+    if (!confirm("Esta é uma conta fixa. Excluir só a deste mês?\n(Para parar de repetir, use o quadro Contas fixas.)")) return;
+    const f = fixas.find(f => f.id === g.fixa);
+    f.pulados = [...new Set([...(f.pulados || []), g.data.slice(0, 7)])];
+    store.gravarPerfil().catch(falha);
+  } else if (!confirm(ehEntrada(g) ? "Excluir esta entrada?" : "Excluir este gasto?")) return;
+  gastos = gastos.filter(x => !ids.includes(x.id));
+  store.remover(ids).catch(falha);
+  render();
+}
+
+function cliqueLista(e) {
+  const b = e.target.closest("button[data-acao]");
+  if (!b) return;
+  const id = Number(b.dataset.id);
+  if (b.dataset.acao === "pago") alternarPago(id);
+  else if (b.dataset.acao === "del") excluir(id);
+  else if (b.dataset.acao === "edit") editar(gastos.find(g => g.id === id));
+}
+$("lista").addEventListener("click", cliqueLista);
+$("alertas-lista").addEventListener("click", cliqueLista);
+
+// ---------- Tela ----------
+const doMes = (ym = $("mes").value) => gastos.filter(g => g.data.startsWith(ym));
 
 function barras(el, mapa, vazio) {
   const ordenadas = Object.entries(mapa).sort((a, b) => b[1] - a[1]);
@@ -339,26 +652,156 @@ function barras(el, mapa, vazio) {
     : `<p class="empty">${vazio}</p>`;
 }
 
+function etiquetaVenc(g) {
+  if (ehEntrada(g) || estaPago(g) || !g.venc) return "";
+  const d = diasAte(g.venc);
+  if (d < 0) return `<span class="tag atraso">atrasada ${-d} dia${d < -1 ? "s" : ""}</span>`;
+  if (d === 0) return `<span class="tag hoje">vence hoje</span>`;
+  return `<span class="tag">vence ${dataBR(g.venc).slice(0, 5)}</span>`;
+}
+
+function itemLista(g) {
+  const forma = g.forma ? (g.parcela ? `${g.forma} ${g.parcela}` : g.forma) : "";
+  const meta = [g.cat, dataBR(g.data), forma, g.quem, g.fixa ? "fixa" : ""].filter(Boolean).map(esc).join(" · ");
+  const situacao = ehEntrada(g) ? ""
+    : `<button class="badge ${estaPago(g) ? "pago" : "pend"}" data-acao="pago" data-id="${g.id}"
+         title="Tocar para mudar">${estaPago(g) ? "✓ Pago" : "A pagar"}</button>`;
+  return `
+    <li>
+      <div>
+        <div class="desc">${esc(g.desc)} ${etiquetaVenc(g)}</div>
+        <div class="meta">${meta}</div>
+      </div>
+      <div class="row">
+        <span class="val ${ehEntrada(g) ? "ent" : ""}">${ehEntrada(g) ? "+ " : ""}${brl(g.valor)}</span>
+        ${situacao}
+        <button class="icon" data-acao="edit" data-id="${g.id}" title="Editar">✏️</button>
+        <button class="icon" data-acao="del" data-id="${g.id}" title="Excluir">🗑️</button>
+      </div>
+    </li>`;
+}
+
+function renderAlertas() {
+  const lista = gastos
+    .filter(g => !ehEntrada(g) && !estaPago(g) && g.venc && diasAte(g.venc) <= DIAS_AVISO)
+    .sort((a, b) => a.venc.localeCompare(b.venc));
+  const box = $("alertas");
+  box.hidden = !lista.length;
+  if (!lista.length) return;
+  const atrasadas = lista.filter(g => diasAte(g.venc) < 0);
+  box.classList.toggle("tem-atraso", atrasadas.length > 0);
+  $("alertas-titulo").textContent = atrasadas.length
+    ? `⚠️ ${atrasadas.length} conta${atrasadas.length > 1 ? "s" : ""} atrasada${atrasadas.length > 1 ? "s" : ""}`
+    : `🔔 Contas que vencem nos próximos ${DIAS_AVISO} dias`;
+  $("alertas-lista").innerHTML = lista.map(g => `
+    <li>
+      <div>
+        <div class="desc">${esc(g.desc)} ${etiquetaVenc(g)}</div>
+        <div class="meta">${esc(g.cat)} · vencimento ${dataBR(g.venc)}</div>
+      </div>
+      <div class="row">
+        <span class="val">${brl(g.valor)}</span>
+        <button class="primary pagar" data-acao="pago" data-id="${g.id}">Marcar como pago</button>
+      </div>
+    </li>`).join("");
+}
+
+function renderComparativo() {
+  const atual = $("mes").value;
+  const meses = Array.from({ length: 6 }, (_, i) => somaMes(atual, i - 5));
+  const dados = meses.map(ym => {
+    const l = doMes(ym);
+    return { ym, g: soma(l.filter(g => !ehEntrada(g))), e: soma(l.filter(ehEntrada)) };
+  });
+  const max = Math.max(1, ...dados.map(d => Math.max(d.g, d.e)));
+  $("cmp").innerHTML = dados.map(d => `
+    <span class="mes-l ${d.ym === atual ? "atual" : ""}">${nomeMesCurto(d.ym)}</span>
+    <div class="barras">
+      <div class="linha"><div class="track"><div class="fill e" style="width:${(d.e / max * 100).toFixed(1)}%"></div></div>
+        <span class="num">${brl(d.e)}</span></div>
+      <div class="linha"><div class="track"><div class="fill g" style="width:${(d.g / max * 100).toFixed(1)}%"></div></div>
+        <span class="num">${brl(d.g)}</span></div>
+    </div>`).join("");
+  const [ant, cur] = dados.slice(-2);
+  let txt = "";
+  if (ant.g > 0 && cur.g > 0) {
+    const dif = (cur.g - ant.g) / ant.g * 100;
+    txt = Math.abs(dif) < 1 ? `Você gastou praticamente o mesmo que em ${NOMES_MES[ant.ym.slice(5) - 1]}.`
+      : `Você gastou <b class="${dif > 0 ? "over" : "ent"}">${Math.abs(dif).toFixed(0)}% ${dif > 0 ? "a mais" : "a menos"}</b>
+         que em ${NOMES_MES[ant.ym.slice(5) - 1]} (${brl(Math.abs(cur.g - ant.g))}).`;
+  }
+  $("cmp-texto").innerHTML = txt;
+}
+
+function renderFixas() {
+  const ativas = fixas.filter(f => !f.fim || f.fim >= hoje().slice(0, 7));
+  $("fixas-lista").innerHTML = ativas.length
+    ? ativas.map(f => `
+      <li>
+        <div>
+          <div class="desc">${esc(f.desc)}</div>
+          <div class="meta">${f.tipo === "entrada" ? "Entrada" : "Gasto"} · todo dia ${f.dia} · ${esc(f.cat)}${f.quem ? " · " + esc(f.quem) : ""}</div>
+        </div>
+        <div class="row">
+          <span class="val ${f.tipo === "entrada" ? "ent" : ""}">${f.tipo === "entrada" ? "+ " : ""}${brl(f.valor)}</span>
+          ${f.fim ? `<span class="tag">termina em ${nomeMesCurto(f.fim)}</span>` : `
+          <button type="button" data-fixa="valor" data-id="${f.id}">Mudar valor</button>
+          <button type="button" data-fixa="parar" data-id="${f.id}">Parar</button>`}
+        </div>
+      </li>`).join("")
+    : `<li class="empty" style="justify-content:center">Nenhuma conta fixa.</li>`;
+}
+
+$("fixas-lista").addEventListener("click", e => {
+  const b = e.target.closest("button[data-fixa]");
+  if (!b) return;
+  const f = fixas.find(f => f.id === Number(b.dataset.id));
+  const atual = hoje().slice(0, 7);
+  if (b.dataset.fixa === "valor") {
+    const v = prompt(`Novo valor de "${f.desc}" (R$). Vale a partir deste mês, para os lançamentos ainda não pagos:`,
+                     String(f.valor).replace(".", ","));
+    if (v === null) return;
+    const n = Math.round(parseFloat(v.replace(/\./g, "").replace(",", ".")) * 100) / 100;
+    if (!(n > 0)) { alert("Valor inválido."); return; }
+    f.valor = n;
+    const mudar = gastos.filter(g => g.fixa === f.id && g.data.slice(0, 7) >= atual && !(g.pago === true));
+    mudar.forEach(g => { g.valor = n; });
+    store.gravarPerfil().catch(falha);
+    if (mudar.length) store.gravar(mudar).catch(falha);
+  } else {
+    if (!confirm(`Parar de lançar "${f.desc}" a partir do próximo mês?\n(Os lançamentos que já existem continuam.)`)) return;
+    f.fim = atual;
+    const futuros = gastos.filter(g => g.fixa === f.id && g.data.slice(0, 7) > atual).map(g => g.id);
+    gastos = gastos.filter(g => !futuros.includes(g.id));
+    store.gravarPerfil().catch(falha);
+    if (futuros.length) store.remover(futuros).catch(falha);
+  }
+  render();
+});
+
 function render() {
   const mes = doMes();
-  const soma = l => l.reduce((s, g) => s + g.valor, 0);
-  const total = soma(mes);
+  const gastosMes = mes.filter(g => !ehEntrada(g)), entradasMes = mes.filter(ehEntrada);
+  const total = soma(gastosMes), entradas = soma(entradasMes), saldo = entradas - total;
+  $("ent-total").textContent = brl(entradas);
   $("total").textContent = brl(total);
-  $("pago-total").textContent = brl(soma(mes.filter(estaPago)));
-  $("pend-total").textContent = brl(soma(mes.filter(g => !estaPago(g))));
+  $("saldo").textContent = brl(saldo);
+  $("saldo").className = "v " + (saldo < 0 ? "over" : saldo > 0 ? "ent" : "");
+  $("pend-total").textContent = brl(soma(gastosMes.filter(g => !estaPago(g))));
 
-  const r = $("restante");
+  const orc = $("orc-box");
   if (orcamento) {
-    const resto = orcamento - total;
-    r.textContent = brl(resto);
-    r.classList.toggle("over", resto < 0);
+    const usado = total / orcamento * 100;
+    orc.innerHTML = `Orçamento ${brl(orcamento)} · usado ${usado.toFixed(0)}% ·
+      ${total > orcamento ? `<b class="over">passou ${brl(total - orcamento)}</b>` : `resta ${brl(orcamento - total)}`}
+      <div class="track"><div class="fill ${total > orcamento ? "over" : ""}" style="width:${Math.min(100, usado).toFixed(1)}%"></div></div>
+      <a href="#" id="def-orc">mudar orçamento</a>`;
   } else {
-    r.textContent = "—";
-    r.classList.remove("over");
+    orc.innerHTML = `Sem orçamento mensal. <a href="#" id="def-orc">Definir um limite de gastos</a>`;
   }
 
   const porCat = {}, porQuem = {};
-  mes.forEach(g => {
+  gastosMes.forEach(g => {
     porCat[g.cat] = (porCat[g.cat] || 0) + g.valor;
     const q = g.quem || "Não informado";
     porQuem[q] = (porQuem[q] || 0) + g.valor;
@@ -369,150 +812,60 @@ function render() {
   // Nomes já usados: sugestões no formulário e opções do filtro.
   const nomes = [...new Set(gastos.map(g => g.quem).filter(Boolean))].sort((a, b) => a.localeCompare(b));
   $("pessoas").innerHTML = nomes.map(n => `<option value="${esc(n)}">`).join("");
-  const fq = $("filtro-quem"), atualQ = fq.value;
-  fq.innerHTML = `<option value="">Todas as pessoas</option>` +
-    nomes.map(n => `<option value="${esc(n)}">${esc(n)}</option>`).join("");
-  fq.value = nomes.includes(atualQ) ? atualQ : "";
+  const manter = (sel, html, valores) => {
+    const atual = sel.value;
+    sel.innerHTML = html;
+    sel.value = valores.includes(atual) ? atual : "";
+  };
+  const ft = $("filtro-tipo").value;
+  const cats = ft === "entrada" ? CATS_ENTRADA : ft === "gasto" ? CATEGORIAS : [...new Set([...CATEGORIAS, ...CATS_ENTRADA])];
+  manter($("filtro-cat"), `<option value="">Todas as categorias</option>` + opcoes(cats), cats);
+  manter($("filtro-quem"), `<option value="">Todas as pessoas</option>` +
+    nomes.map(n => `<option value="${esc(n)}">${esc(n)}</option>`).join(""), nomes);
 
-  const fc = $("filtro-cat").value, fs = $("filtro-sit").value, fp = fq.value;
-  const lista = mes.filter(g => (!fc || g.cat === fc)
-                             && (!fs || (fs === "pago") === estaPago(g))
+  const fc = $("filtro-cat").value, fs = $("filtro-sit").value, fp = $("filtro-quem").value;
+  const lista = mes.filter(g => (!ft || (g.tipo || "gasto") === ft)
+                             && (!fc || g.cat === fc)
+                             && (!fs || (!ehEntrada(g) && (fs === "pago") === estaPago(g)))
                              && (!fp || g.quem === fp))
                    .sort((a, b) => b.data.localeCompare(a.data) || b.id - a.id);
-  $("lista").innerHTML = lista.length
-    ? lista.map(g => {
-        const forma = g.forma ? (g.parcela ? `${g.forma} ${g.parcela}` : g.forma) : "";
-        const meta = [g.cat, g.data.split("-").reverse().join("/"), forma, g.quem].filter(Boolean).map(esc).join(" · ");
-        return `
-        <li>
-          <div>
-            <div class="desc">${esc(g.desc)}</div>
-            <div class="meta">${meta}</div>
-          </div>
-          <div class="row">
-            <span class="val">${brl(g.valor)}</span>
-            <button class="badge ${estaPago(g) ? "pago" : "pend"}" data-toggle="${g.id}"
-              title="Tocar para mudar">${estaPago(g) ? "✓ Pago" : "A pagar"}</button>
-            <button class="icon" data-edit="${g.id}" title="Editar">✏️</button>
-            <button class="icon" data-del="${g.id}" title="Excluir">🗑️</button>
-          </div>
-        </li>`;
-      }).join("")
+  $("lista").innerHTML = lista.length ? lista.map(itemLista).join("")
     : `<li class="empty" style="justify-content:center">Nenhum lançamento.</li>`;
+
+  renderAlertas();
+  renderComparativo();
+  renderFixas();
 }
 
-function resetForm() {
-  editando = null;
-  $("form").reset();
-  $("data").value = hoje();
-  $("form-title").textContent = "Novo gasto";
-  $("valor-label").textContent = "Valor total (R$)";
-  $("salvar").textContent = "Adicionar";
-  $("cancelar").hidden = true;
-  atualizaForm();
-}
-
-$("form").addEventListener("submit", e => {
+$("orc-box").addEventListener("click", e => {
+  if (e.target.id !== "def-orc") return;
   e.preventDefault();
-  const item = {
-    desc: $("desc").value.trim(),
-    valor: Math.round(parseFloat($("valor").value) * 100) / 100,
-    cat: $("cat").value,
-    data: $("data").value,
-    forma: $("forma").value,
-    quem: $("quem").value.trim(),
-    pago: $("pago").checked,
-  };
-  if (!item.desc || !(item.valor > 0)) return;
-
-  let novos;
-  if (editando) {
-    novos = [Object.assign(gastos.find(x => x.id === editando), item)];
-  } else {
-    const n = item.forma === CREDITO ? Number($("parcelas").value) : 1;
-    const base = Date.now();
-    if (n === 1) {
-      novos = [{ id: base, ...item }];
-    } else {
-      // Divide em centavos; a última parcela leva a diferença do arredondamento.
-      const cent = Math.round(item.valor * 100), parte = Math.floor(cent / n);
-      novos = Array.from({ length: n }, (_, i) => ({
-        ...item,
-        id: base + i,
-        grupo: base,
-        parcela: `${i + 1}/${n}`,
-        valor: (i === n - 1 ? cent - parte * (n - 1) : parte) / 100,
-        data: somaMeses(item.data, i),
-        pago: i === 0 && item.pago,
-      }));
-    }
-    gastos.push(...novos);
-  }
-  store.gravar(novos).catch(falha);
-  $("mes").value = item.data.slice(0, 7);
-  resetForm();
-  render();
-});
-
-$("cancelar").addEventListener("click", resetForm);
-
-$("lista").addEventListener("click", e => {
-  const del = e.target.closest("[data-del]");
-  const edit = e.target.closest("[data-edit]");
-  const tog = e.target.closest("[data-toggle]");
-  if (tog) {
-    const g = gastos.find(g => g.id === Number(tog.dataset.toggle));
-    g.pago = !estaPago(g);
-    store.gravar([g]).catch(falha);
-    render();
-  } else if (del) {
-    const g = gastos.find(g => g.id === Number(del.dataset.del));
-    let ids = [g.id];
-    if (g.grupo) {
-      const todas = gastos.filter(x => x.grupo === g.grupo);
-      if (todas.length > 1 && confirm(`Esta compra tem ${todas.length} parcelas. Excluir TODAS as parcelas?`)) {
-        ids = todas.map(x => x.id);
-      } else if (!confirm(`Excluir só a parcela ${g.parcela}?`)) return;
-    } else if (!confirm("Excluir este gasto?")) return;
-    gastos = gastos.filter(x => !ids.includes(x.id));
-    store.remover(ids).catch(falha);
-    render();
-  } else if (edit) {
-    const g = gastos.find(g => g.id === Number(edit.dataset.edit));
-    editando = g.id;
-    $("desc").value = g.desc;
-    $("valor").value = g.valor;
-    $("cat").value = g.cat;
-    $("data").value = g.data;
-    $("forma").value = g.forma || FORMAS[0];
-    $("quem").value = g.quem || "";
-    $("pago").checked = estaPago(g);
-    $("form-title").textContent = g.parcela ? `Editar parcela ${g.parcela}` : "Editar gasto";
-    $("valor-label").textContent = g.parcela ? "Valor da parcela (R$)" : "Valor (R$)";
-    $("salvar").textContent = "Salvar";
-    $("cancelar").hidden = false;
-    atualizaForm();
-    $("desc").focus();
-  }
-});
-
-$("def-orc").addEventListener("click", e => {
-  e.preventDefault();
-  const v = prompt("Orçamento mensal em R$ (deixe vazio para remover):", orcamento ?? "");
+  const v = prompt("Orçamento mensal em R$ (deixe vazio para remover):",
+                   orcamento ? String(orcamento).replace(".", ",") : "");
   if (v === null) return;
-  const n = parseFloat(v.replace(",", "."));
+  const n = parseFloat(v.replace(/\./g, "").replace(",", "."));
   orcamento = n > 0 ? n : null;
-  store.gravarOrcamento().catch(falha);
+  store.gravarPerfil().catch(falha);
   render();
 });
 
-["mes", "filtro-cat", "filtro-sit", "filtro-quem"].forEach(id => $(id).addEventListener("change", render));
+function mudarMes() { gerarFixas(); render(); }
+$("mes").addEventListener("change", () => { if (!$("mes").value) $("mes").value = hoje().slice(0, 7); mudarMes(); });
+$("mes-ant").addEventListener("click", () => { $("mes").value = somaMes($("mes").value, -1); mudarMes(); });
+$("mes-prox").addEventListener("click", () => { $("mes").value = somaMes($("mes").value, 1); mudarMes(); });
+["filtro-tipo", "filtro-cat", "filtro-sit", "filtro-quem"].forEach(id => $(id).addEventListener("change", render));
 
-$("exportar").addEventListener("click", async () => {
-  const linhas = [["Data", "Descrição", "Categoria", "Forma de pagamento", "Parcela", "Quem pagou", "Situação", "Valor"],
+// Ao voltar para o app (ex.: no dia seguinte), atualiza vencimentos e o mês atual.
+document.addEventListener("visibilitychange", () => { if (!document.hidden) mudarMes(); });
+
+// ---------- Arquivos: CSV, backup ----------
+$("exportar").addEventListener("click", () => {
+  const linhas = [["Tipo", "Data", "Descrição", "Categoria", "Forma de pagamento", "Parcela", "Vencimento",
+                   "Pessoa", "Situação", "Valor"],
     ...doMes().sort((a, b) => a.data.localeCompare(b.data))
-      .map(g => [g.data.split("-").reverse().join("/"), g.desc, g.cat, g.forma || "", g.parcela || "",
-                 g.quem || "", estaPago(g) ? "Pago" : "A pagar", g.valor.toFixed(2).replace(".", ",")])];
+      .map(g => [ehEntrada(g) ? "Entrada" : "Gasto", dataBR(g.data), g.desc, g.cat, g.forma || "", g.parcela || "",
+                 g.venc ? dataBR(g.venc) : "", g.quem || "", ehEntrada(g) ? "" : estaPago(g) ? "Pago" : "A pagar",
+                 (ehEntrada(g) ? g.valor : -g.valor).toFixed(2).replace(".", ",")])];
   const csv = linhas.map(l => l.map(c => `"${String(c).replace(/"/g, '""')}"`).join(";")).join("\r\n");
   const blob = new Blob(["﻿" + csv], { type: "text/csv;charset=utf-8" });
   entregar(blob, `gastos-${$("mes").value}.csv`);
@@ -534,7 +887,7 @@ async function entregar(blob, filename) {
 }
 
 $("backup").addEventListener("click", () => {
-  const dados = JSON.stringify({ app: "meus-gastos", versao: 1, gastos, orcamento });
+  const dados = JSON.stringify({ app: "meus-gastos", versao: 2, gastos, orcamento, fixas });
   entregar(new Blob([dados], { type: "application/json" }), `backup-gastos-${hoje()}.json`);
 });
 
@@ -552,31 +905,30 @@ $("arquivo-backup").addEventListener("change", async e => {
     && typeof g.desc === "string" && typeof g.data === "string" && typeof g.cat === "string");
   const ids = new Set(gastos.map(g => g.id));
   const novos = validos.filter(g => !ids.has(g.id));
-  if (!confirm(`Encontrei ${validos.length} gastos no backup, ${novos.length} ainda não estão aqui. Adicionar?`)) return;
+  const fixasNovas = (Array.isArray(dados.fixas) ? dados.fixas : [])
+    .filter(x => x && typeof x.id === "number" && !fixas.some(f => f.id === x.id));
+  if (!confirm(`Encontrei ${validos.length} lançamentos no backup, ${novos.length} ainda não estão aqui` +
+               (fixasNovas.length ? ` e ${fixasNovas.length} contas fixas novas` : "") + ". Adicionar?")) return;
   gastos.push(...novos);
-  if (!orcamento && dados.orcamento > 0) { orcamento = dados.orcamento; store.gravarOrcamento().catch(falha); }
-  store.gravar(novos).catch(falha);
+  let perfil = false;
+  if (!orcamento && dados.orcamento > 0) { orcamento = dados.orcamento; perfil = true; }
+  if (fixasNovas.length) { fixas.push(...fixasNovas); perfil = true; }
+  if (perfil) store.gravarPerfil().catch(falha);
+  if (novos.length) store.gravar(novos).catch(falha);
+  gerarFixas();
   render();
-  alert(`${novos.length} gastos adicionados.`);
+  alert(`${novos.length} lançamentos adicionados.`);
 });
 
-if ("serviceWorker" in navigator && location.protocol === "https:") {
-  navigator.serviceWorker.register("sw.js").catch(() => {});
-}
-
-const NOMES_MES = ["janeiro", "fevereiro", "março", "abril", "maio", "junho", "julho",
-                   "agosto", "setembro", "outubro", "novembro", "dezembro"];
-const dataBR = iso => iso.split("-").reverse().join("/");
-
+// ---------- Relatório ----------
 function montarRelatorio() {
-  const per = $("rel-periodo").value, mes = $("mes").value, [ano, m] = mes.split("-");
-  const lista = gastos
+  const per = $("rel-periodo").value, mes = $("mes").value, ano = mes.slice(0, 4);
+  const todos = gastos
     .filter(g => per === "tudo" || g.data.startsWith(per === "ano" ? ano : mes))
     .sort((a, b) => a.data.localeCompare(b.data) || a.id - b.id);
-  const titulo = per === "tudo" ? "Todos os lançamentos"
-    : per === "ano" ? `Ano de ${ano}` : `${NOMES_MES[Number(m) - 1]} de ${ano}`;
-  const soma = l => l.reduce((s, g) => s + g.valor, 0);
-  const total = soma(lista), pago = soma(lista.filter(estaPago));
+  const lista = todos.filter(g => !ehEntrada(g)), entradas = todos.filter(ehEntrada);
+  const titulo = per === "tudo" ? "Todos os lançamentos" : per === "ano" ? `Ano de ${ano}` : nomeMes(mes);
+  const total = soma(lista), pago = soma(lista.filter(estaPago)), recebido = soma(entradas);
   const agrupar = campo => {
     const r = {};
     lista.forEach(g => { const k = g[campo] || "Não informado"; r[k] = (r[k] || 0) + g.valor; });
@@ -592,27 +944,35 @@ function montarRelatorio() {
 
   $("relatorio").innerHTML = `
     <div class="cab">
-      <div><h1>Relatório de gastos</h1><div>${titulo[0].toUpperCase() + titulo.slice(1)}</div></div>
+      <div><h1>Relatório financeiro</h1><div>${maiuscula(titulo)}</div></div>
       <img src="icons/logo-dqn.png" alt="DQN Sistemas">
     </div>
     <table class="resumo"><tbody>
-      <tr><td>Total gasto</td><td class="num"><b>${brl(total)}</b></td></tr>
-      <tr><td>Já pago</td><td class="num">${brl(pago)}</td></tr>
-      <tr><td>A pagar</td><td class="num">${brl(total - pago)}</td></tr>
-      <tr><td>Lançamentos</td><td class="num">${lista.length}</td></tr>
+      <tr><td>Entradas</td><td class="num">${brl(recebido)}</td></tr>
+      <tr><td>Gastos</td><td class="num">${brl(total)}</td></tr>
+      <tr><td><b>Saldo</b></td><td class="num"><b>${brl(recebido - total)}</b></td></tr>
+      <tr><td>Gastos já pagos</td><td class="num">${brl(pago)}</td></tr>
+      <tr><td>Falta pagar</td><td class="num">${brl(total - pago)}</td></tr>
       ${per === "mes" && orcamento ? `<tr><td>Orçamento do mês</td><td class="num">${brl(orcamento)}</td></tr>
         <tr><td>Restante do orçamento</td><td class="num">${brl(orcamento - total)}</td></tr>` : ""}
     </tbody></table>
-    ${lista.length ? tabelaGrupo("Por categoria", "Categoria", agrupar("cat")) + tabelaGrupo("Por pessoa", "Quem pagou", agrupar("quem")) : ""}
-    <h2>Lançamentos</h2>
+    ${lista.length ? tabelaGrupo("Gastos por categoria", "Categoria", agrupar("cat")) +
+                     tabelaGrupo("Gastos por pessoa", "Quem pagou", agrupar("quem")) : ""}
+    <h2>Entradas</h2>
+    ${entradas.length ? `<table><thead><tr><th>Data</th><th>Descrição</th><th>Categoria</th><th>Quem recebeu</th>
+      <th class="num">Valor</th></tr></thead><tbody>
+      ${entradas.map(g => `<tr><td>${dataBR(g.data)}</td><td>${esc(g.desc)}</td><td>${esc(g.cat)}</td>
+        <td>${esc(g.quem || "")}</td><td class="num">${brl(g.valor)}</td></tr>`).join("")}
+      </tbody></table>` : "<p>Nenhuma entrada neste período.</p>"}
+    <h2>Gastos</h2>
     ${lista.length ? `<table><thead><tr><th>Data</th><th>Descrição</th><th>Categoria</th><th>Pagamento</th>
-      <th>Quem pagou</th><th>Situação</th><th class="num">Valor</th></tr></thead><tbody>
+      <th>Vencimento</th><th>Quem pagou</th><th>Situação</th><th class="num">Valor</th></tr></thead><tbody>
       ${lista.map(g => `<tr><td>${dataBR(g.data)}</td><td>${esc(g.desc)}</td><td>${esc(g.cat)}</td>
-        <td>${esc([g.forma, g.parcela].filter(Boolean).join(" "))}</td><td>${esc(g.quem || "")}</td>
-        <td>${estaPago(g) ? "Pago" : "A pagar"}</td><td class="num">${brl(g.valor)}</td></tr>`).join("")}
-      </tbody></table>` : "<p>Nenhum lançamento neste período.</p>"}
+        <td>${esc([g.forma, g.parcela].filter(Boolean).join(" "))}</td><td>${g.venc ? dataBR(g.venc) : ""}</td>
+        <td>${esc(g.quem || "")}</td><td>${estaPago(g) ? "Pago" : "A pagar"}</td>
+        <td class="num">${brl(g.valor)}</td></tr>`).join("")}
+      </tbody></table>` : "<p>Nenhum gasto neste período.</p>"}
     <div class="rodape">Gerado em ${agora} · Meus Gastos — DQN Sistemas</div>`;
-  return lista.length;
 }
 
 $("imprimir").addEventListener("click", () => {
@@ -623,7 +983,13 @@ $("imprimir").addEventListener("click", () => {
   if (img.complete) abrir(); else { img.onload = img.onerror = abrir; }
 });
 
-atualizaForm();
+if ("serviceWorker" in navigator && location.protocol === "https:") {
+  navigator.serviceWorker.register("sw.js").catch(() => {});
+}
+
+$("status").textContent = "💾 Salvo neste aparelho.";
+setTipo("gasto");
+gerarFixas();
 render();
 </script>
 <section id="relatorio" aria-hidden="true"></section>

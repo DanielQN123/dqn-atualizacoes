@@ -44,6 +44,7 @@ async function iniciar() {
       return;
     }
     document.body.dataset.logado = "sim";
+    window.app.entrar();
     $("conta-email").textContent = user.email;
     $("backup-hint").textContent = "Seus gastos ficam salvos na sua conta. O backup serve para guardar uma cópia extra.";
 
@@ -65,15 +66,15 @@ async function iniciar() {
           await b.commit();
         }
       },
-      gravarOrcamento(orcamento) {
-        return fb.setDoc(perfilRef, { orcamento }, { merge: true });
+      gravarPerfil(campos) {
+        return fb.setDoc(perfilRef, campos, { merge: true });
       },
     };
 
     let primeira = true;
     pararGastos = fb.onSnapshot(gastosRef, { includeMetadataChanges: true }, snap => {
       const lista = snap.docs.map(d => d.data()).filter(v => typeof v.valor === "number");
-      window.app.setGastos(lista);
+      window.app.setGastos(lista, !snap.metadata.fromCache);
       $("status").textContent = snap.metadata.hasPendingWrites
         ? "⏳ Salvo no aparelho, enviando para a nuvem…"
         : snap.metadata.fromCache
@@ -86,19 +87,22 @@ async function iniciar() {
     }, () => { $("status").textContent = "⚠️ Não foi possível carregar seus gastos."; });
 
     pararPerfil = fb.onSnapshot(perfilRef, snap => {
-      window.app.setOrcamento(snap.data()?.orcamento ?? null);
+      if (snap.metadata.fromCache && !snap.exists()) return; // espera a resposta do servidor
+      window.app.setPerfil(snap.data() || {});
     }, () => {});
   });
 
-  // Gastos lançados antes de existir login ficam no aparelho: oferece enviar uma vez por conta.
+  // Lançamentos feitos antes de existir login ficam no aparelho: oferece enviar uma vez por conta.
   async function oferecerMigracao(uid) {
     const flag = "gastos.migrado." + uid;
     try { if (localStorage.getItem(flag)) return; } catch { return; }
-    const locais = window.app.locais();
-    if (!locais.length) return;
+    const locais = window.app.locais(), fixasLocais = window.app.fixasLocais();
+    if (!locais.length && !fixasLocais.length) return;
     try { localStorage.setItem(flag, "1"); } catch {}
-    if (!confirm(`Encontrei ${locais.length} gastos salvos só neste aparelho. Enviar para a sua conta?`)) return;
-    window.nuvem.gravar(locais).catch(() => alert("Não foi possível enviar os gastos. Use Fazer backup para não perdê-los."));
+    if (!confirm(`Encontrei ${locais.length} lançamentos` +
+                 (fixasLocais.length ? ` e ${fixasLocais.length} contas fixas` : "") +
+                 " salvos só neste aparelho. Enviar para a sua conta?")) return;
+    window.app.importar(locais, fixasLocais);
   }
 
   const form = $("login-form");

@@ -1,5 +1,5 @@
 // Permite abrir o app sem internet. Ao mudar qualquer arquivo, aumente a versão.
-const CACHE = "gastos-v4";
+const CACHE = "gastos-v5";
 const ARQUIVOS = [
   "./",
   "./index.html",
