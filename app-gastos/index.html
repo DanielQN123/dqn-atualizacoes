@@ -92,6 +92,24 @@
   .pend-v { color: var(--warn); }
   .filtros { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 8px; }
   .filtros select { flex: 1 1 120px; }
+  #relatorio { display: none; }
+  @media print {
+    body { background: #fff; color: #000; }
+    body > *:not(#relatorio) { display: none !important; }
+    #relatorio { display: block; font-size: 11pt; }
+    #relatorio table { width: 100%; border-collapse: collapse; margin: 6px 0 14px; }
+    #relatorio th, #relatorio td { border-bottom: 1px solid #ccc; padding: 4px 6px; text-align: left; vertical-align: top; }
+    #relatorio th { background: #eef2f7; }
+    #relatorio tr { break-inside: avoid; }
+    #relatorio .num { text-align: right; white-space: nowrap; }
+    #relatorio .cab { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #055fe6; padding-bottom: 8px; margin-bottom: 10px; }
+    #relatorio .cab img { height: 48px; }
+    #relatorio h1 { font-size: 16pt; margin: 0; }
+    #relatorio h2 { font-size: 12pt; margin: 12px 0 2px; }
+    #relatorio .resumo td { font-size: 12pt; }
+    #relatorio .rodape { color: #555; font-size: 9pt; margin-top: 12px; }
+    @page { margin: 12mm; }
+  }
   @media (max-width: 560px) {
     form { grid-template-columns: 1fr; }
     .summary { grid-template-columns: 1fr 1fr; }
@@ -190,6 +208,20 @@
       <select id="filtro-quem" aria-label="Filtrar quem pagou"></select>
     </div>
     <ul id="lista"></ul>
+  </section>
+
+  <section class="card">
+    <h2>Relatório</h2>
+    <p class="hint" style="margin-top:0">Gera um relatório para imprimir ou salvar em PDF
+      (na tela de impressão, escolha "Salvar como PDF").</p>
+    <div class="row">
+      <select id="rel-periodo" aria-label="Período do relatório">
+        <option value="mes">Mês selecionado no resumo</option>
+        <option value="ano">Ano inteiro</option>
+        <option value="tudo">Todos os lançamentos</option>
+      </select>
+      <button type="button" class="primary" id="imprimir">Imprimir relatório</button>
+    </div>
   </section>
 
   <section class="card" id="backup-card">
@@ -532,9 +564,69 @@ if ("serviceWorker" in navigator && location.protocol === "https:") {
   navigator.serviceWorker.register("sw.js").catch(() => {});
 }
 
+const NOMES_MES = ["janeiro", "fevereiro", "março", "abril", "maio", "junho", "julho",
+                   "agosto", "setembro", "outubro", "novembro", "dezembro"];
+const dataBR = iso => iso.split("-").reverse().join("/");
+
+function montarRelatorio() {
+  const per = $("rel-periodo").value, mes = $("mes").value, [ano, m] = mes.split("-");
+  const lista = gastos
+    .filter(g => per === "tudo" || g.data.startsWith(per === "ano" ? ano : mes))
+    .sort((a, b) => a.data.localeCompare(b.data) || a.id - b.id);
+  const titulo = per === "tudo" ? "Todos os lançamentos"
+    : per === "ano" ? `Ano de ${ano}` : `${NOMES_MES[Number(m) - 1]} de ${ano}`;
+  const soma = l => l.reduce((s, g) => s + g.valor, 0);
+  const total = soma(lista), pago = soma(lista.filter(estaPago));
+  const agrupar = campo => {
+    const r = {};
+    lista.forEach(g => { const k = g[campo] || "Não informado"; r[k] = (r[k] || 0) + g.valor; });
+    return Object.entries(r).sort((a, b) => b[1] - a[1]);
+  };
+  const tabelaGrupo = (nome, coluna, grupos) => `
+    <h2>${nome}</h2>
+    <table><thead><tr><th>${coluna}</th><th class="num">Valor</th><th class="num">%</th></tr></thead><tbody>
+    ${grupos.map(([k, v]) => `<tr><td>${esc(k)}</td><td class="num">${brl(v)}</td>
+      <td class="num">${total ? (v / total * 100).toFixed(1).replace(".", ",") : "0"}%</td></tr>`).join("")}
+    </tbody></table>`;
+  const agora = new Date().toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" });
+
+  $("relatorio").innerHTML = `
+    <div class="cab">
+      <div><h1>Relatório de gastos</h1><div>${titulo[0].toUpperCase() + titulo.slice(1)}</div></div>
+      <img src="icons/logo-dqn.png" alt="DQN Sistemas">
+    </div>
+    <table class="resumo"><tbody>
+      <tr><td>Total gasto</td><td class="num"><b>${brl(total)}</b></td></tr>
+      <tr><td>Já pago</td><td class="num">${brl(pago)}</td></tr>
+      <tr><td>A pagar</td><td class="num">${brl(total - pago)}</td></tr>
+      <tr><td>Lançamentos</td><td class="num">${lista.length}</td></tr>
+      ${per === "mes" && orcamento ? `<tr><td>Orçamento do mês</td><td class="num">${brl(orcamento)}</td></tr>
+        <tr><td>Restante do orçamento</td><td class="num">${brl(orcamento - total)}</td></tr>` : ""}
+    </tbody></table>
+    ${lista.length ? tabelaGrupo("Por categoria", "Categoria", agrupar("cat")) + tabelaGrupo("Por pessoa", "Quem pagou", agrupar("quem")) : ""}
+    <h2>Lançamentos</h2>
+    ${lista.length ? `<table><thead><tr><th>Data</th><th>Descrição</th><th>Categoria</th><th>Pagamento</th>
+      <th>Quem pagou</th><th>Situação</th><th class="num">Valor</th></tr></thead><tbody>
+      ${lista.map(g => `<tr><td>${dataBR(g.data)}</td><td>${esc(g.desc)}</td><td>${esc(g.cat)}</td>
+        <td>${esc([g.forma, g.parcela].filter(Boolean).join(" "))}</td><td>${esc(g.quem || "")}</td>
+        <td>${estaPago(g) ? "Pago" : "A pagar"}</td><td class="num">${brl(g.valor)}</td></tr>`).join("")}
+      </tbody></table>` : "<p>Nenhum lançamento neste período.</p>"}
+    <div class="rodape">Gerado em ${agora} · Meus Gastos — DQN Sistemas</div>`;
+  return lista.length;
+}
+
+$("imprimir").addEventListener("click", () => {
+  montarRelatorio();
+  // espera a logo carregar antes de abrir a impressão
+  const img = $("relatorio").querySelector("img");
+  const abrir = () => window.print();
+  if (img.complete) abrir(); else { img.onload = img.onerror = abrir; }
+});
+
 atualizaForm();
 render();
 </script>
+<section id="relatorio" aria-hidden="true"></section>
 <script type="module" src="nuvem.js"></script>
 </body>
 </html>
