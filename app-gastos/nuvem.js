@@ -1,6 +1,6 @@
 // Login e sincronização em tempo real com o Firebase.
 // Só é carregado de fato quando firebase-config.js tem a configuração do projeto.
-import { firebaseConfig } from "./firebase-config.js";
+import { firebaseConfig, vapidKey } from "./firebase-config.js";
 
 const $ = id => document.getElementById(id);
 const LOTE = 400; // limite do Firestore é 500 operações por lote
@@ -32,11 +32,13 @@ async function iniciar() {
   });
 
   let pararGastos = null, pararPerfil = null;
+  const avisos = criarAvisos(fb, app, db);
 
   fb.onAuthStateChanged(auth, user => {
     pararGastos?.(); pararPerfil?.();
     pararGastos = pararPerfil = null;
     if (!user) {
+      avisos.sair();
       window.nuvem = null;
       window.app.limpar();
       document.body.dataset.logado = "nao";
@@ -85,6 +87,8 @@ async function iniciar() {
         oferecerMigracao(user.uid);
       }
     }, () => { $("status").textContent = "⚠️ Não foi possível carregar seus gastos."; });
+
+    avisos.entrar(user);
 
     pararPerfil = fb.onSnapshot(perfilRef, snap => {
       if (snap.metadata.fromCache && !snap.exists()) return; // espera a resposta do servidor
@@ -139,6 +143,116 @@ async function iniciar() {
 
   $("sair").addEventListener("click", async () => {
     if (!confirm("Sair da sua conta neste aparelho?")) return;
+    await avisos.desativar().catch(() => {}); // a próxima pessoa neste aparelho não recebe os avisos desta conta
     await fb.signOut(auth);
   });
+}
+
+// ---------- Avisos de vencimento (notificações) ----------
+// Cada aparelho com avisos ativos grava seu token em usuarios/{uid}/dispositivos; o agendamento
+// diário (avisos/enviar.mjs) envia para todos os aparelhos da conta.
+function criarAvisos(fb, app, db) {
+  const KEY_DISP = "gastos.aviso.dispositivo";
+  const card = $("avisos-card"), status = $("avisos-status");
+  const btAtivar = $("avisos-ativar"), btDesativar = $("avisos-desativar");
+  const ios = /iPhone|iPad|iPod/.test(navigator.userAgent);
+  const instalado = matchMedia("(display-mode: standalone)").matches || navigator.standalone === true;
+  let usuario = null, messaging = null;
+
+  const idLocal = () => { try { return localStorage.getItem(KEY_DISP); } catch { return null; } };
+  const setIdLocal = v => { try { v ? localStorage.setItem(KEY_DISP, v) : localStorage.removeItem(KEY_DISP); } catch {} };
+  const sha256 = async txt => [...new Uint8Array(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(txt)))]
+    .map(b => b.toString(16).padStart(2, "0")).join("");
+  const refDisp = id => fb.doc(db, "usuarios", usuario.uid, "dispositivos", id);
+
+  function mostrar(texto, botao) {
+    card.hidden = false;
+    status.textContent = texto;
+    btAtivar.hidden = botao !== "ativar";
+    btDesativar.hidden = botao !== "desativar";
+  }
+
+  async function suportado() {
+    if (!vapidKey || !("Notification" in window) || !("serviceWorker" in navigator)) return false;
+    try { return await fb.mensagensSuportadas(); } catch { return false; }
+  }
+
+  async function registrarToken() {
+    const reg = await navigator.serviceWorker.ready;
+    messaging ??= fb.getMessaging(app);
+    const token = await fb.getToken(messaging, { vapidKey, serviceWorkerRegistration: reg });
+    const id = await sha256(token);
+    await fb.setDoc(refDisp(id), {
+      token, atualizado: new Date().toISOString(), aparelho: navigator.userAgent.slice(0, 150),
+    });
+    const antigo = idLocal();
+    if (antigo && antigo !== id) {
+      const b = fb.writeBatch(db); b.delete(refDisp(antigo)); b.commit().catch(() => {});
+    }
+    setIdLocal(id);
+  }
+
+  async function atualizarTela() {
+    if (!usuario) { card.hidden = true; return; }
+    if (!(await suportado())) {
+      if (vapidKey && ios && !instalado) {
+        mostrar("No iPhone, primeiro adicione o app à Tela de Início (Safari → Compartilhar → " +
+                "Adicionar à Tela de Início) e abra por lá para ativar os avisos.");
+      } else if (vapidKey) {
+        mostrar("Este navegador não recebe notificações. No Android use o Chrome; no iPhone, o app instalado na Tela de Início.");
+      } else {
+        card.hidden = true;
+      }
+      return;
+    }
+    if (Notification.permission === "denied") {
+      mostrar("As notificações deste app estão bloqueadas. Libere nas configurações do celular " +
+              "(Notificações → Meus Gastos ou Chrome) e volte aqui.");
+    } else if (Notification.permission === "granted" && idLocal()) {
+      mostrar("✅ Avisos ativos neste aparelho.", "desativar");
+    } else {
+      mostrar("Os avisos estão desligados neste aparelho.", "ativar");
+    }
+  }
+
+  btAtivar.addEventListener("click", async () => {
+    btAtivar.disabled = true;
+    try {
+      const perm = await Notification.requestPermission();
+      if (perm === "granted") await registrarToken();
+    } catch {
+      alert("Não foi possível ativar os avisos agora. Verifique a internet e tente de novo.");
+    } finally {
+      btAtivar.disabled = false;
+      atualizarTela();
+    }
+  });
+
+  async function desativar() {
+    const id = idLocal();
+    if (!id || !usuario) return;
+    setIdLocal(null);
+    const b = fb.writeBatch(db); b.delete(refDisp(id));
+    await Promise.allSettled([b.commit(), messaging ? fb.deleteToken(messaging) : null]);
+  }
+
+  btDesativar.addEventListener("click", async () => {
+    btDesativar.disabled = true;
+    await desativar().catch(() => {});
+    btDesativar.disabled = false;
+    atualizarTela();
+  });
+
+  return {
+    async entrar(user) {
+      usuario = user;
+      await atualizarTela();
+      // O token pode mudar com o tempo: renova a cada abertura se os avisos estiverem ativos.
+      if (idLocal() && (await suportado()) && Notification.permission === "granted") {
+        registrarToken().catch(() => {});
+      }
+    },
+    sair() { usuario = null; card.hidden = true; },
+    desativar,
+  };
 }

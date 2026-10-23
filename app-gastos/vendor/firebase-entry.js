@@ -10,3 +10,4 @@ export {
   initializeFirestore, persistentLocalCache, persistentMultipleTabManager,
   collection, doc, onSnapshot, writeBatch, setDoc,
 } from "firebase/firestore";
+export { getMessaging, getToken, deleteToken, isSupported as mensagensSuportadas } from "firebase/messaging";

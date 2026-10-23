@@ -35,3 +35,12 @@ gastos no Firestore em `usuarios/{uid}/gastos`, sincronizando em tempo real entr
 funcionando sem internet. As regras de acesso estão em `app-gastos/firestore.rules`.
 Sem configuração, o app continua salvando só no aparelho.
 `app-gastos/vendor/firebase.js` é o SDK do Firebase empacotado (veja `vendor/firebase-entry.js`).
+
+### Avisos de vencimento (notificações)
+
+Com `vapidKey` preenchida em `app-gastos/firebase-config.js`, o app mostra "Ativar avisos neste
+aparelho" (no iPhone, só no app instalado na Tela de Início). Todo dia às 07:47 (Brasília) o
+GitHub Actions (`.github/workflows/avisos-gastos.yml`) roda `app-gastos/avisos/enviar.mjs`, que
+avisa todos os aparelhos da conta sobre contas que vencem em 3 dias, hoje ou venceram ontem.
+Precisa do segredo `FIREBASE_SERVICE_ACCOUNT` (JSON da conta de serviço do Firebase) no repositório,
+e o agendamento só roda a partir do branch `main`.

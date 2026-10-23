@@ -1,5 +1,5 @@
 // Permite abrir o app sem internet. Ao mudar qualquer arquivo, aumente a versão.
-const CACHE = "gastos-v5";
+const CACHE = "gastos-v6";
 const ARQUIVOS = [
   "./",
   "./index.html",
@@ -36,4 +36,26 @@ self.addEventListener("fetch", e => {
       })
       .catch(() => caches.match(e.request, { ignoreSearch: true }))
   );
+});
+
+// Avisos de vencimento (enviados pelo agendamento diário via Firebase Cloud Messaging).
+self.addEventListener("push", e => {
+  let msg = {};
+  try { msg = e.data ? e.data.json() : {}; } catch {}
+  const d = msg.data || {}, n = msg.notification || {};
+  e.waitUntil(self.registration.showNotification(d.titulo || n.title || "Meus Gastos", {
+    body: d.corpo || n.body || "",
+    icon: "icons/icon-192.png",
+    badge: "icons/icon-192.png",
+    tag: d.tag || "vencimentos",
+    data: { url: d.url || "./" },
+  }));
+});
+
+self.addEventListener("notificationclick", e => {
+  e.notification.close();
+  e.waitUntil(self.clients.matchAll({ type: "window", includeUncontrolled: true }).then(janelas => {
+    const aberta = janelas.find(w => new URL(w.url).pathname.startsWith(new URL(self.registration.scope).pathname));
+    return aberta ? aberta.focus() : self.clients.openWindow(e.notification.data?.url || "./");
+  }));
 });

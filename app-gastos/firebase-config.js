@@ -4,3 +4,7 @@
 //
 // Enquanto estiver null, o app funciona sem login e salva só no aparelho.
 export const firebaseConfig = null;
+
+// Chave "Web Push" do Firebase (Configurações do projeto → Cloud Messaging →
+// Certificados push da Web → Gerar par de chaves). Com null, os avisos ficam desligados.
+export const vapidKey = null;
