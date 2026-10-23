@@ -1,5 +1,5 @@
 // Permite abrir o app sem internet. Ao mudar qualquer arquivo, aumente a versão.
-const CACHE = "gastos-v6";
+const CACHE = "gastos-v7";
 const ARQUIVOS = [
   "./",
   "./index.html",
@@ -10,8 +10,8 @@ const ARQUIVOS = [
   "./icons/favicon-32.png",
   "./icons/logo-dqn.png",
   "./nuvem.js",
-  "./firebase-config.js",
-  "./vendor/firebase.js",
+  "./supabase-config.js",
+  "./vendor/supabase.js",
 ];
 
 self.addEventListener("install", e => {
@@ -38,11 +38,11 @@ self.addEventListener("fetch", e => {
   );
 });
 
-// Avisos de vencimento (enviados pelo agendamento diário via Firebase Cloud Messaging).
+// Avisos de vencimento (enviados pela Edge Function gastos-push do Supabase).
 self.addEventListener("push", e => {
   let msg = {};
   try { msg = e.data ? e.data.json() : {}; } catch {}
-  const d = msg.data || {}, n = msg.notification || {};
+  const d = msg.data || msg, n = msg.notification || {};
   e.waitUntil(self.registration.showNotification(d.titulo || n.title || "Meus Gastos", {
     body: d.corpo || n.body || "",
     icon: "icons/icon-192.png",

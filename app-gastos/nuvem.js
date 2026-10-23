@@ -1,103 +1,253 @@
-// Login e sincronização em tempo real com o Firebase.
-// Só é carregado de fato quando firebase-config.js tem a configuração do projeto.
-import { firebaseConfig, vapidKey } from "./firebase-config.js";
+// Login e sincronização em tempo real com o Supabase (projeto dqn-sistemas, tabelas gastos_*).
+// Só é carregado de fato quando supabase-config.js tem a configuração do projeto.
+// Tudo o que é lançado vai primeiro para uma cópia no aparelho (funciona sem internet) e é
+// enviado para a conta assim que houver conexão.
+import { supabaseConfig } from "./supabase-config.js";
 
 const $ = id => document.getElementById(id);
-const LOTE = 400; // limite do Firestore é 500 operações por lote
+const APP_URL = new URL("./", location.href).href;
+const LOTE = 500;
 
 const ERROS = {
-  "auth/invalid-credential": "E-mail ou senha incorretos.",
-  "auth/wrong-password": "E-mail ou senha incorretos.",
-  "auth/user-not-found": "E-mail ou senha incorretos.",
-  "auth/invalid-email": "E-mail inválido.",
-  "auth/email-already-in-use": "Já existe uma conta com esse e-mail. Use \"Entrar\".",
-  "auth/weak-password": "A senha precisa ter pelo menos 6 caracteres.",
-  "auth/missing-password": "Digite a senha.",
-  "auth/too-many-requests": "Muitas tentativas. Aguarde alguns minutos e tente de novo.",
-  "auth/network-request-failed": "Sem internet. Conecte-se e tente de novo.",
+  invalid_credentials: "E-mail ou senha incorretos.",
+  email_not_confirmed: "Confirme seu e-mail pelo link que enviamos e tente de novo.",
+  user_already_exists: "Já existe uma conta com esse e-mail. Use \"Entrar\".",
+  email_exists: "Já existe uma conta com esse e-mail. Use \"Entrar\".",
+  weak_password: "A senha precisa ter pelo menos 6 caracteres.",
+  email_address_invalid: "E-mail inválido.",
+  validation_failed: "Confira o e-mail e a senha.",
+  over_request_rate_limit: "Muitas tentativas. Aguarde alguns minutos e tente de novo.",
+  over_email_send_rate_limit: "Muitos e-mails enviados. Aguarde alguns minutos e tente de novo.",
+  signup_disabled: "A criação de contas está desligada. Fale com o suporte.",
+  same_password: "A nova senha precisa ser diferente da anterior.",
 };
-const mensagem = e => ERROS[e.code] || "Não foi possível concluir. Tente de novo.";
+const semInternet = e => !navigator.onLine || e?.name === "AuthRetryableFetchError" || /fetch|network/i.test(e?.message || "");
+const mensagem = e => ERROS[e?.code] || (semInternet(e) ? "Sem internet. Conecte-se e tente de novo." : "Não foi possível concluir. Tente de novo.");
 
-if (firebaseConfig) iniciar();
+if (supabaseConfig) iniciar();
 
 async function iniciar() {
   document.body.dataset.modo = "nuvem";
-  const fb = await import("./vendor/firebase.js");
-  const app = fb.initializeApp(firebaseConfig);
-  const auth = fb.getAuth(app);
-  auth.languageCode = "pt";
-  // Cache no aparelho: o app abre e lança gastos sem internet e envia quando conectar.
-  const db = fb.initializeFirestore(app, {
-    localCache: fb.persistentLocalCache({ tabManager: fb.persistentMultipleTabManager() }),
+  const { createClient } = await import("./vendor/supabase.js");
+  const sb = createClient(supabaseConfig.url, supabaseConfig.chave, {
+    auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true, storageKey: "gastos.sessao" },
   });
 
-  let pararGastos = null, pararPerfil = null;
-  const avisos = criarAvisos(fb, app, db);
+  // ---------- Cópia no aparelho + fila do que falta enviar ----------
+  let usuario = null, cache = null, canal = null, enviando = false, erroEnvio = false, carregou = false;
+  let reenvio = null, versaoCarga = 0, agendado = null;
+  const chaveCache = uid => "gastos.nuvem." + uid;
+  const lerCache = uid => { try { return JSON.parse(localStorage.getItem(chaveCache(uid))); } catch { return null; } };
+  const salvarCache = () => { try { localStorage.setItem(chaveCache(usuario.id), JSON.stringify(cache)); } catch {} };
+  const pendenteDe = id => cache.pendentes.some(o => o.id === id);
 
-  fb.onAuthStateChanged(auth, user => {
-    pararGastos?.(); pararPerfil?.();
-    pararGastos = pararPerfil = null;
+  function entregar() {
+    if (!cache.sincronizado) return; // sem nada confirmado da conta ainda: continua "Carregando…"
+    window.app.setGastos(Object.values(cache.gastos), true);
+    window.app.setPerfil(cache.perfil || {});
+  }
+  const entregarLogo = () => { clearTimeout(agendado); agendado = setTimeout(entregar, 60); };
+
+  function atualizarStatus() {
+    if (!usuario) return;
+    const n = cache.pendentes.length;
+    $("status").textContent =
+      !navigator.onLine ? "📴 Sem internet. O que você lançar será enviado quando conectar."
+      : erroEnvio ? "⚠️ Não foi possível enviar para a nuvem. Tentando de novo…"
+      : n ? "⏳ Salvo no aparelho, enviando para a nuvem…"
+      : !carregou && !cache.sincronizado ? "Carregando…"
+      : !carregou ? "⚠️ Não foi possível carregar seus gastos."
+      : "☁️ Sincronizado com a sua conta.";
+  }
+
+  // Uma operação nova sobre o mesmo lançamento substitui a anterior que ainda não foi enviada.
+  function enfileirar(op) {
+    if (op.tipo === "perfil") {
+      const antiga = cache.pendentes.find(o => o.tipo === "perfil");
+      if (antiga) op.campos = { ...antiga.campos, ...op.campos };
+      cache.pendentes = cache.pendentes.filter(o => o.tipo !== "perfil");
+    } else {
+      cache.pendentes = cache.pendentes.filter(o => o.id !== op.id);
+    }
+    cache.pendentes.push(op);
+  }
+
+  async function enviar() {
+    if (enviando || !usuario || !cache.pendentes.length) { atualizarStatus(); return; }
+    enviando = true;
+    const uid = usuario.id, meu = cache;
+    try {
+      while (usuario?.id === uid && meu.pendentes.length) {
+        // junta operações seguidas do mesmo tipo num envio só
+        const tipo = meu.pendentes[0].tipo;
+        const lote = [];
+        for (const o of meu.pendentes) { if (o.tipo !== tipo || lote.length >= LOTE) break; lote.push(o); }
+        let r;
+        const agora = new Date().toISOString();
+        if (tipo === "gravar") {
+          r = await sb.from("gastos_lancamento")
+            .upsert(lote.map(o => ({ usuario_id: uid, id: o.id, dados: o.dados, atualizado_em: agora })), { onConflict: "usuario_id,id" });
+        } else if (tipo === "remover") {
+          r = await sb.from("gastos_lancamento").delete().eq("usuario_id", uid).in("id", lote.map(o => o.id));
+        } else {
+          r = await sb.from("gastos_perfil").upsert({ usuario_id: uid, ...lote[0].campos, atualizado_em: agora }, { onConflict: "usuario_id" });
+        }
+        if (r.error) throw r.error;
+        meu.pendentes = meu.pendentes.filter(o => !lote.includes(o));
+        if (usuario?.id === uid) salvarCache();
+      }
+      erroEnvio = false;
+    } catch (e) {
+      erroEnvio = !semInternet(e);
+      clearTimeout(reenvio);
+      reenvio = setTimeout(enviar, 30000);
+    } finally {
+      enviando = false;
+      atualizarStatus();
+    }
+  }
+
+  async function lerTudo(uid) {
+    const linhas = [];
+    for (let de = 0; ; de += 1000) {
+      const { data, error } = await sb.from("gastos_lancamento").select("id, dados").eq("usuario_id", uid).order("id").range(de, de + 999);
+      if (error) throw error;
+      linhas.push(...data);
+      if (data.length < 1000) return linhas;
+    }
+  }
+
+  async function carregar() {
+    if (!usuario) return;
+    const uid = usuario.id, versao = ++versaoCarga;
+    try {
+      const [linhas, perfil] = await Promise.all([
+        lerTudo(uid),
+        sb.from("gastos_perfil").select("orcamento, fixas").eq("usuario_id", uid).maybeSingle()
+          .then(r => { if (r.error) throw r.error; return r.data; }),
+      ]);
+      if (usuario?.id !== uid || versao !== versaoCarga) return;
+      // o que ainda não foi enviado vale mais do que o que veio da nuvem
+      const gastos = Object.fromEntries(linhas.filter(l => typeof l.dados?.valor === "number").map(l => [l.id, l.dados]));
+      let p = perfil ? { orcamento: perfil.orcamento === null ? null : Number(perfil.orcamento), fixas: perfil.fixas } : {};
+      for (const o of cache.pendentes) {
+        if (o.tipo === "gravar") gastos[o.id] = o.dados;
+        else if (o.tipo === "remover") delete gastos[o.id];
+        else p = { ...p, ...o.campos };
+      }
+      cache.gastos = gastos;
+      cache.perfil = p;
+      cache.sincronizado = true;
+      salvarCache();
+      const primeira = !carregou;
+      carregou = true;
+      entregar();
+      if (primeira) oferecerMigracao(uid);
+    } catch {
+      if (usuario?.id === uid) entregar(); // sem internet: segue com a cópia do aparelho
+    } finally {
+      atualizarStatus();
+    }
+  }
+
+  function assinar(uid) {
+    canal = sb.channel("gastos-" + uid)
+      .on("postgres_changes", { event: "*", schema: "public", table: "gastos_lancamento", filter: `usuario_id=eq.${uid}` }, p => {
+        if (usuario?.id !== uid) return;
+        if (p.eventType === "DELETE") {
+          if (p.old?.usuario_id !== uid || pendenteDe(p.old.id)) return;
+          delete cache.gastos[p.old.id];
+        } else {
+          if (pendenteDe(p.new.id) || typeof p.new.dados?.valor !== "number") return;
+          cache.gastos[p.new.id] = p.new.dados;
+        }
+        salvarCache();
+        entregarLogo();
+      })
+      .on("postgres_changes", { event: "*", schema: "public", table: "gastos_perfil", filter: `usuario_id=eq.${uid}` }, p => {
+        if (usuario?.id !== uid || p.eventType === "DELETE" || cache.pendentes.some(o => o.tipo === "perfil")) return;
+        cache.perfil = { orcamento: p.new.orcamento === null ? null : Number(p.new.orcamento), fixas: p.new.fixas };
+        salvarCache();
+        entregarLogo();
+      })
+      // ao (re)conectar, busca tudo de novo para não perder o que mudou enquanto estava desconectado
+      .subscribe(status => { if (status === "SUBSCRIBED") carregar(); });
+  }
+
+  const avisos = criarAvisos(sb);
+
+  function trocarUsuario(user) {
+    if (canal) { sb.removeChannel(canal); canal = null; }
+    clearTimeout(reenvio);
+    versaoCarga++;
     if (!user) {
       avisos.sair();
+      usuario = cache = null;
       window.nuvem = null;
       window.app.limpar();
       document.body.dataset.logado = "nao";
       $("status").textContent = "";
       return;
     }
+    usuario = user;
+    cache = lerCache(user.id) || { gastos: {}, perfil: null, pendentes: [], sincronizado: false };
+    carregou = erroEnvio = false;
     document.body.dataset.logado = "sim";
     window.app.entrar();
     $("conta-email").textContent = user.email;
     $("backup-hint").textContent = "Seus gastos ficam salvos na sua conta. O backup serve para guardar uma cópia extra.";
 
-    const gastosRef = fb.collection(db, "usuarios", user.uid, "gastos");
-    const perfilRef = fb.doc(db, "usuarios", user.uid);
-
     window.nuvem = {
       async gravar(lista) {
-        for (let i = 0; i < lista.length; i += LOTE) {
-          const b = fb.writeBatch(db);
-          lista.slice(i, i + LOTE).forEach(g => b.set(fb.doc(gastosRef, String(g.id)), { ...g }));
-          await b.commit();
-        }
+        for (const g of lista) { cache.gastos[g.id] = { ...g }; enfileirar({ tipo: "gravar", id: g.id, dados: { ...g } }); }
+        salvarCache(); enviar();
       },
       async remover(ids) {
-        for (let i = 0; i < ids.length; i += LOTE) {
-          const b = fb.writeBatch(db);
-          ids.slice(i, i + LOTE).forEach(id => b.delete(fb.doc(gastosRef, String(id))));
-          await b.commit();
-        }
+        for (const id of ids) { delete cache.gastos[id]; enfileirar({ tipo: "remover", id }); }
+        salvarCache(); enviar();
       },
-      gravarPerfil(campos) {
-        return fb.setDoc(perfilRef, campos, { merge: true });
+      async gravarPerfil(campos) {
+        cache.perfil = { ...cache.perfil, ...campos };
+        enfileirar({ tipo: "perfil", campos: { ...campos } });
+        salvarCache(); enviar();
       },
     };
 
-    let primeira = true;
-    pararGastos = fb.onSnapshot(gastosRef, { includeMetadataChanges: true }, snap => {
-      const lista = snap.docs.map(d => d.data()).filter(v => typeof v.valor === "number");
-      window.app.setGastos(lista, !snap.metadata.fromCache);
-      $("status").textContent = snap.metadata.hasPendingWrites
-        ? "⏳ Salvo no aparelho, enviando para a nuvem…"
-        : snap.metadata.fromCache
-          ? "📴 Sem internet. O que você lançar será enviado quando conectar."
-          : "☁️ Sincronizado com a sua conta.";
-      if (primeira && !snap.metadata.fromCache) {
-        primeira = false;
-        oferecerMigracao(user.uid);
-      }
-    }, () => { $("status").textContent = "⚠️ Não foi possível carregar seus gastos."; });
-
+    entregar();
+    atualizarStatus();
+    assinar(user.id);
+    carregar();
+    enviar();
     avisos.entrar(user);
+  }
 
-    pararPerfil = fb.onSnapshot(perfilRef, snap => {
-      if (snap.metadata.fromCache && !snap.exists()) return; // espera a resposta do servidor
-      window.app.setPerfil(snap.data() || {});
-    }, () => {});
+  let primeiroEvento = true;
+  sb.auth.onAuthStateChange((evento, session) => {
+    // não chamar o Supabase direto aqui dentro (trava o login): agenda para logo depois
+    setTimeout(() => {
+      if (evento === "PASSWORD_RECOVERY") novaSenha();
+      const user = session?.user ?? null;
+      if (!primeiroEvento && (user?.id ?? null) === (usuario?.id ?? null)) return; // só renovou o acesso
+      primeiroEvento = false;
+      trocarUsuario(user);
+    }, 0);
+  });
+
+  async function novaSenha() {
+    const senha = prompt("Digite a nova senha (pelo menos 6 caracteres):");
+    if (!senha) return;
+    const { error } = await sb.auth.updateUser({ password: senha });
+    alert(error ? mensagem(error) : "Senha alterada.");
+  }
+
+  addEventListener("online", () => { enviar(); carregar(); });
+  addEventListener("offline", atualizarStatus);
+  document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState === "visible" && usuario) { enviar(); carregar(); }
   });
 
   // Lançamentos feitos antes de existir login ficam no aparelho: oferece enviar uma vez por conta.
-  async function oferecerMigracao(uid) {
+  function oferecerMigracao(uid) {
     const flag = "gastos.migrado." + uid;
     try { if (localStorage.getItem(flag)) return; } catch { return; }
     const locais = window.app.locais(), fixasLocais = window.app.fixasLocais();
@@ -111,14 +261,17 @@ async function iniciar() {
 
   const form = $("login-form");
   const erro = txt => { $("login-erro").textContent = txt; };
-  const dados = () => [$("login-email").value.trim(), $("login-senha").value];
+  const dados = () => ({ email: $("login-email").value.trim(), password: $("login-senha").value });
   const ocupado = sim => form.querySelectorAll("button").forEach(b => { b.disabled = sim; });
 
   form.addEventListener("submit", async e => {
     e.preventDefault();
     erro(""); ocupado(true);
-    try { await fb.signInWithEmailAndPassword(auth, ...dados()); form.reset(); }
-    catch (ex) { erro(mensagem(ex)); }
+    try {
+      const { error } = await sb.auth.signInWithPassword(dados());
+      if (error) throw error;
+      form.reset();
+    } catch (ex) { erro(mensagem(ex)); }
     finally { ocupado(false); }
   });
 
@@ -126,8 +279,15 @@ async function iniciar() {
     erro("");
     if (!form.reportValidity()) return;
     ocupado(true);
-    try { await fb.createUserWithEmailAndPassword(auth, ...dados()); form.reset(); }
-    catch (ex) { erro(mensagem(ex)); }
+    try {
+      const d = dados();
+      const { data, error } = await sb.auth.signUp({ ...d, options: { emailRedirectTo: APP_URL } });
+      if (error) throw error;
+      // Conta já existente com e-mail confirmado volta sem identidades (o Supabase não diz o motivo).
+      if (data.user && !data.user.identities?.length) throw { code: "user_already_exists" };
+      if (!data.session) erro(`Enviamos um link de confirmação para ${d.email}. Abra o e-mail, toque no link e depois entre aqui.`);
+      else form.reset();
+    } catch (ex) { erro(mensagem(ex)); }
     finally { ocupado(false); }
   });
 
@@ -135,35 +295,34 @@ async function iniciar() {
     erro("");
     const email = $("login-email").value.trim();
     if (!email) { erro("Digite seu e-mail acima e toque de novo em \"Esqueci a senha\"."); return; }
-    try {
-      await fb.sendPasswordResetEmail(auth, email);
-      erro("Se esse e-mail tiver conta, enviamos um link para criar uma nova senha.");
-    } catch (ex) { erro(mensagem(ex)); }
+    const { error } = await sb.auth.resetPasswordForEmail(email, { redirectTo: APP_URL });
+    erro(error ? mensagem(error) : "Se esse e-mail tiver conta, enviamos um link para criar uma nova senha.");
   });
 
   $("sair").addEventListener("click", async () => {
-    if (!confirm("Sair da sua conta neste aparelho?")) return;
+    const n = cache?.pendentes.length || 0;
+    if (!confirm(n ? `${n} alteração(ões) ainda não foram enviadas (sem internet) e serão perdidas. Sair mesmo assim?`
+                   : "Sair da sua conta neste aparelho?")) return;
+    const uid = usuario?.id;
     await avisos.desativar().catch(() => {}); // a próxima pessoa neste aparelho não recebe os avisos desta conta
-    await fb.signOut(auth);
+    await sb.auth.signOut({ scope: "local" });
+    try { if (uid) localStorage.removeItem(chaveCache(uid)); } catch {}
   });
 }
 
 // ---------- Avisos de vencimento (notificações) ----------
-// Cada aparelho com avisos ativos grava seu token em usuarios/{uid}/dispositivos; o agendamento
-// diário (avisos/enviar.mjs) envia para todos os aparelhos da conta.
-function criarAvisos(fb, app, db) {
-  const KEY_DISP = "gastos.aviso.dispositivo";
+// Cada aparelho com avisos ativos grava sua inscrição (Web Push) em gastos_push_inscricao. Todo dia o banco
+// monta os avisos (gastos_lembrete) e a Edge Function gastos-push entrega em todos os aparelhos da conta.
+function criarAvisos(sb) {
+  const KEY_CHAVE = "gastos.aviso.chave";
   const card = $("avisos-card"), status = $("avisos-status");
   const btAtivar = $("avisos-ativar"), btDesativar = $("avisos-desativar");
   const ios = /iPhone|iPad|iPod/.test(navigator.userAgent);
   const instalado = matchMedia("(display-mode: standalone)").matches || navigator.standalone === true;
-  let usuario = null, messaging = null;
+  let usuario = null;
 
-  const idLocal = () => { try { return localStorage.getItem(KEY_DISP); } catch { return null; } };
-  const setIdLocal = v => { try { v ? localStorage.setItem(KEY_DISP, v) : localStorage.removeItem(KEY_DISP); } catch {} };
-  const sha256 = async txt => [...new Uint8Array(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(txt)))]
-    .map(b => b.toString(16).padStart(2, "0")).join("");
-  const refDisp = id => fb.doc(db, "usuarios", usuario.uid, "dispositivos", id);
+  const suportado = () => location.protocol === "https:" && "serviceWorker" in navigator &&
+    "PushManager" in window && "Notification" in window;
 
   function mostrar(texto, botao) {
     card.hidden = false;
@@ -172,43 +331,61 @@ function criarAvisos(fb, app, db) {
     btDesativar.hidden = botao !== "desativar";
   }
 
-  async function suportado() {
-    if (!vapidKey || !("Notification" in window) || !("serviceWorker" in navigator)) return false;
-    try { return await fb.mensagensSuportadas(); } catch { return false; }
+  async function inscricaoAtual() {
+    const reg = await navigator.serviceWorker.getRegistration();
+    return reg ? reg.pushManager.getSubscription() : null;
   }
 
-  async function registrarToken() {
+  async function chavePublica() {
+    try { const c = localStorage.getItem(KEY_CHAVE); if (c) return c; } catch {}
+    const { data, error } = await sb.functions.invoke("gastos-push", { body: { acao: "chave" } });
+    if (error || !data?.chave) throw error || new Error("sem chave");
+    try { localStorage.setItem(KEY_CHAVE, data.chave); } catch {}
+    return data.chave;
+  }
+  const bytes = b64 => {
+    const s = atob((b64 + "=".repeat((4 - b64.length % 4) % 4)).replace(/-/g, "+").replace(/_/g, "/"));
+    return Uint8Array.from(s, c => c.charCodeAt(0));
+  };
+
+  async function gravarInscricao(sub) {
+    const j = sub.toJSON();
+    return sb.from("gastos_push_inscricao").upsert({
+      usuario_id: usuario.id, endpoint: j.endpoint, p256dh: j.keys.p256dh, auth: j.keys.auth,
+      aparelho: navigator.userAgent.slice(0, 150),
+    }, { onConflict: "endpoint" });
+  }
+
+  async function registrar() {
     const reg = await navigator.serviceWorker.ready;
-    messaging ??= fb.getMessaging(app);
-    const token = await fb.getToken(messaging, { vapidKey, serviceWorkerRegistration: reg });
-    const id = await sha256(token);
-    await fb.setDoc(refDisp(id), {
-      token, atualizado: new Date().toISOString(), aparelho: navigator.userAgent.slice(0, 150),
-    });
-    const antigo = idLocal();
-    if (antigo && antigo !== id) {
-      const b = fb.writeBatch(db); b.delete(refDisp(antigo)); b.commit().catch(() => {});
+    const chave = await chavePublica();
+    let sub = await reg.pushManager.getSubscription();
+    if (!sub) sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: bytes(chave) });
+    let { error } = await gravarInscricao(sub);
+    if (error) {
+      // inscrição que ficou de outra conta neste aparelho: troca por uma nova
+      await sub.unsubscribe().catch(() => {});
+      sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: bytes(chave) });
+      ({ error } = await gravarInscricao(sub));
+      if (error) throw error;
     }
-    setIdLocal(id);
   }
 
   async function atualizarTela() {
     if (!usuario) { card.hidden = true; return; }
-    if (!(await suportado())) {
-      if (vapidKey && ios && !instalado) {
+    if (!suportado()) {
+      if (ios && !instalado) {
         mostrar("No iPhone, primeiro adicione o app à Tela de Início (Safari → Compartilhar → " +
                 "Adicionar à Tela de Início) e abra por lá para ativar os avisos.");
-      } else if (vapidKey) {
-        mostrar("Este navegador não recebe notificações. No Android use o Chrome; no iPhone, o app instalado na Tela de Início.");
       } else {
-        card.hidden = true;
+        mostrar("Este navegador não recebe notificações. No Android use o Chrome; no iPhone, o app instalado na Tela de Início.");
       }
       return;
     }
     if (Notification.permission === "denied") {
       mostrar("As notificações deste app estão bloqueadas. Libere nas configurações do celular " +
               "(Notificações → Meus Gastos ou Chrome) e volte aqui.");
-    } else if (Notification.permission === "granted" && idLocal()) {
+    } else if (Notification.permission === "granted" && (await inscricaoAtual())) {
       mostrar("✅ Avisos ativos neste aparelho.", "desativar");
     } else {
       mostrar("Os avisos estão desligados neste aparelho.", "ativar");
@@ -219,7 +396,10 @@ function criarAvisos(fb, app, db) {
     btAtivar.disabled = true;
     try {
       const perm = await Notification.requestPermission();
-      if (perm === "granted") await registrarToken();
+      if (perm === "granted") {
+        await registrar();
+        await sb.rpc("gastos_testar_push"); // chega uma notificação de teste em seguida
+      }
     } catch {
       alert("Não foi possível ativar os avisos agora. Verifique a internet e tente de novo.");
     } finally {
@@ -229,11 +409,11 @@ function criarAvisos(fb, app, db) {
   });
 
   async function desativar() {
-    const id = idLocal();
-    if (!id || !usuario) return;
-    setIdLocal(null);
-    const b = fb.writeBatch(db); b.delete(refDisp(id));
-    await Promise.allSettled([b.commit(), messaging ? fb.deleteToken(messaging) : null]);
+    if (!usuario || !suportado()) return;
+    const sub = await inscricaoAtual();
+    if (!sub) return;
+    await sb.from("gastos_push_inscricao").delete().eq("endpoint", sub.endpoint);
+    await sub.unsubscribe().catch(() => {});
   }
 
   btDesativar.addEventListener("click", async () => {
@@ -247,10 +427,8 @@ function criarAvisos(fb, app, db) {
     async entrar(user) {
       usuario = user;
       await atualizarTela();
-      // O token pode mudar com o tempo: renova a cada abertura se os avisos estiverem ativos.
-      if (idLocal() && (await suportado()) && Notification.permission === "granted") {
-        registrarToken().catch(() => {});
-      }
+      // garante que a inscrição deste aparelho está na conta (pode ter mudado com o tempo)
+      if (suportado() && Notification.permission === "granted" && (await inscricaoAtual())) registrar().catch(() => {});
     },
     sair() { usuario = null; card.hidden = true; },
     desativar,

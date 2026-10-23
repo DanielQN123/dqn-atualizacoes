@@ -28,19 +28,21 @@ uma cópia ou passar os dados de um celular para outro.
 O ícone usa o símbolo da logo DQN Sistemas. Para trocar: `python3 app-gastos/gerar-icones.py simbolo.png "#ffffff"`
 (a cor é o fundo atrás da logo) e aumente a versão em `app-gastos/sw.js`.
 
-### Login e sincronização (Firebase)
+### Login e sincronização (Supabase)
 
-Com `app-gastos/firebase-config.js` preenchido, o app pede login (e-mail e senha) e salva os
-gastos no Firestore em `usuarios/{uid}/gastos`, sincronizando em tempo real entre aparelhos e
-funcionando sem internet. As regras de acesso estão em `app-gastos/firestore.rules`.
-Sem configuração, o app continua salvando só no aparelho.
-`app-gastos/vendor/firebase.js` é o SDK do Firebase empacotado (veja `vendor/firebase-entry.js`).
+O app usa o projeto Supabase **dqn-sistemas** (`app-gastos/supabase-config.js`), em tabelas próprias
+separadas das do ERP: `gastos_lancamento` (um lançamento por linha, em `dados`), `gastos_perfil`
+(orçamento e contas fixas), `gastos_push_inscricao`, `gastos_notificacao` e `gastos_push_chave`.
+Cada pessoa só lê e grava as próprias linhas (RLS por `usuario_id`). O app pede login (e-mail e senha),
+sincroniza em tempo real (Realtime) e funciona sem internet: o que é lançado fica numa fila no aparelho e
+é enviado quando conectar. Com `supabaseConfig = null`, o app volta a salvar só no aparelho.
+`app-gastos/vendor/supabase.js` é o SDK do Supabase empacotado (veja `vendor/supabase-entry.js`).
 
 ### Avisos de vencimento (notificações)
 
-Com `vapidKey` preenchida em `app-gastos/firebase-config.js`, o app mostra "Ativar avisos neste
-aparelho" (no iPhone, só no app instalado na Tela de Início). Todo dia às 07:47 (Brasília) o
-GitHub Actions (`.github/workflows/avisos-gastos.yml`) roda `app-gastos/avisos/enviar.mjs`, que
-avisa todos os aparelhos da conta sobre contas que vencem em 3 dias, hoje ou venceram ontem.
-Precisa do segredo `FIREBASE_SERVICE_ACCOUNT` (JSON da conta de serviço do Firebase) no repositório,
-e o agendamento só roda a partir do branch `main`.
+O app mostra "Ativar avisos neste aparelho" (no iPhone, só no app instalado na Tela de Início) e grava a
+inscrição Web Push em `gastos_push_inscricao`; ao ativar chega uma notificação de teste. Todo dia às 07:47
+(Campo Grande) o `pg_cron` roda `gastos_interno.gastos_lembrete()`, que monta o aviso das contas que vencem
+em 3 dias, hoje ou venceram ontem, e a Edge Function `gastos-push`
+(`app-gastos/supabase/functions/gastos-push/index.ts`, "Verify JWT" desligado) entrega em todos os
+aparelhos da conta. As chaves VAPID são criadas pela própria função e ficam em `gastos_push_chave`.
